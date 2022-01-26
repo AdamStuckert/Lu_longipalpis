@@ -1,1 +1,1 @@
-# Lu_longipalpis
+# Lutzomyia longipalpis descriptive study
