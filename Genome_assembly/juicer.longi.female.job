@@ -1,0 +1,76 @@
+#!/bin/bash
+#SBATCH -p general
+#sbatch -J mpileup
+#SBATCH --cpus-per-task=24
+#SBATCH -t 5-0
+#SBATCH --mem=60g
+#SBATCH -n 1
+#SBATCH -o juicer_%j.out
+
+
+module purge
+
+ml bwa/0.7.17 # module load anaconda/colsa
+# source activate juicer-1.8.9
+
+which juicer.sh
+
+
+DIR=$(pwd)
+genome="$HOME/Lutzo_assemblies/LUT06.asm_210301.fasta"
+gname=$(basename $genome)
+gbase=$(basename $genome | sed "s/.fasta//g" | sed "s/.fa//g")
+HiC1="${PROJ}/data/HiCdata/Longipalpis_Female_R1.fastq.gz"
+HiC2="${PROJ}/data/HiCdata/Longipalpis_Female_R2.fastq.gz"
+OUT="longipalpis_female"
+
+mkdir $SCR/juicer
+mkdir $SCR/juicer/$OUT
+mkdir $SCR/juicer/${OUT}/references/
+mkdir $SCR/juicer/${OUT}/fastq
+cd $SCR/juicer/${OUT}/fastq
+
+# create symlinks to Hi-C data:
+ln -s $HiC1 $SCR/juicer/${OUT}/fastq/
+ln -s $HiC2 $SCR/juicer/${OUT}/fastq/
+
+# create symlink to genome:
+cp $genome $SCR/juicer/references/
+
+cd $SCR/juicer/references
+bwa index $gname
+
+
+# generate sites:
+cd $SCR/juicer/references/
+
+generate_site_positions.py Arima $gbase $gname
+
+
+awk 'BEGIN{OFS="\t"}{print $1, $NF}' ${gbase}_Arima.txt > ${gbase}.chrom.sizes
+
+cd $SCR/juicer/${OUT}/
+
+# copy sites info here (shouldve just made it in this folder)
+cp $SCR/juicer/references/${gbase}_Arima.txt .
+cp $SCR/juicer/references/${gbase}.chrom.sizes .
+
+
+
+juicer.sh \
+-g $gbase \
+-d $SCR/juicer/${OUT} \
+-D $SCR/juicer/ \
+-a $SCR/juicer/${OUT}/$gbase \
+-p $SCR/juicer/${OUT}/${gbase}.chrom.sizes \
+-y $SCR/juicer/${OUT}/${gbase}_Arima.txt \
+-z $SCR/juicer/references/$gname \
+-t 24 \
+-s Arima
+
+
+mkdir $SCR/juicer/${OUT}/3dDNA
+cd $SCR/juicer/${OUT}/3dDNA
+
+
+run-asm-pipeline.sh $SCR/juicer/references/$gname $SCR/juicer/${OUT}/aligned/merged_nodups.txt
