@@ -1,0 +1,26 @@
+#!/bin/bash
+#SBATCH -p general
+#sbatch -J juicer.asm
+#SBATCH --cpus-per-task=24
+#SBATCH -t 5-0
+#SBATCH --mem=60g
+#SBATCH -n 1
+#SBATCH -o juicer.asm_%j.out
+
+
+conda deactivate
+
+DIR=$(pwd)
+genome="$HOME/Lutzo_assemblies/LUT06.asm_210301.fasta"
+gname=$(basename $genome)
+gbase=$(basename $genome | sed "s/.fasta//g" | sed "s/.fa//g")
+HiC1="${PROJ}/data/HiCdata/Longipalpis_Female_R1.fastq.gz"
+HiC2="${PROJ}/data/HiCdata/Longipalpis_Female_R2.fastq.gz"
+OUT="longipalpis_female"
+
+#mkdir $SCR/juicer/${OUT}/3dDNA_smallcontigs
+cd $SCR/juicer/${OUT}/3dDNA_2
+
+
+# review:
+run-asm-pipeline-post-review.sh  -r $SCR/juicer/${OUT}/3dDNA_2/LUT06.asm_210301.rawchrom.review.assembly  $genome $SCR/juicer/${OUT}/3dDNA_2/LUT06.asm_210301.mnd.txt
