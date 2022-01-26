@@ -1,0 +1,44 @@
+#!/bin/bash
+#SBATCH --ntasks 1
+#SBATCH -t 4-0:00:00
+#SBATCH --job-name=evansiRNA
+#SBATCH --output=evansiRNA.log
+#SBATCH --cpus-per-task=24
+#SBATCH --partition=general
+#SBATCH --mem=100Gb
+
+# load modules
+ml trimmomatic/0.36 trinity/2.8.6
+
+
+
+SCR="/pine/scr/a/s/astuck"
+evansidir="/proj/matutelb/HTSF/200227_UNC32-K00270_0240_BHGFKWBBXY"
+
+# directory to drop in temp files
+mkdir ${SCR}/evansiRNAseq
+mkdir ${SCR}/evansiRNAseq/subsampledreads
+mkdir ${SCR}/evansiRNAseq/trimmed
+mkdir ${SCR}/Lutzo_assemblies/transcriptomes/
+
+# subsample reads
+zcat ${evansidir}/FEMALE_91_ACTCGTGT-ATTGGAAC_S48_L008_R1_001.fastq.gz > ${SCR}/evansiRNAseq/subsampledreads/FEMALE_1.fq
+seqtk sample -s100 ${SCR}/evansiRNAseq/subsampledreads/FEMALE_1.fq 40000000 > ${SCR}/evansiRNAseq/subsampledreads/FEMALE_91_ACTCGTGT-ATTGGAAC_S48_L008_subsamp_R1_001.fq
+zcat ${evansidir}/FEMALE_91_ACTCGTGT-ATTGGAAC_S48_L008_R2_001.fastq.gz > ${SCR}/evansiRNAseq/subsampledreads/FEMALE_2.fq
+seqtk sample -s100 ${SCR}/evansiRNAseq/subsampledreads/FEMALE_2.fq 40000000 > ${SCR}/evansiRNAseq/subsampledreads/FEMALE_91_ACTCGTGT-ATTGGAAC_S48_L008_subsamp_R2_001.fq
+
+zcat ${evansidir}/MALE_92_GTCTACAC-GCCAAGGT_S49_L008_R1_001.fastq.gz > ${SCR}/evansiRNAseq/subsampledreads/MALE_1.fq
+seqtk sample -s100 ${SCR}/evansiRNAseq/subsampledreads/MALE_1.fq 40000000 > ${SCR}/evansiRNAseq/subsampledreads/MALE_92_GTCTACAC-GCCAAGGT_S49_L008_subsamp_R1_001.fastq
+zcat ${evansidir}/MALE_92_GTCTACAC-GCCAAGGT_S49_L008_R2_001.fastq.gz > ${SCR}/evansiRNAseq/subsampledreads/MALE_2.fq
+seqtk sample -s100 ${SCR}/evansiRNAseq/subsampledreads/MALE_2.fq 40000000 > ${SCR}/evansiRNAseq/subsampledreads/MALE_92_GTCTACAC-GCCAAGGT_S49_L008_subsamp_R2_001.fq
+
+# trim reads
+trimmomatic PE -threads 24 -baseout ${SCR}/evansiRNAseq/trimmed/FEMALE_91.TRIM.fastq ${SCR}/evansiRNAseq/subsampledreads/FEMALE_91_ACTCGTGT-ATTGGAAC_S48_L008_subsamp_R1_001.fq ${SCR}/evansiRNAseq/subsampledreads/FEMALE_91_ACTCGTGT-ATTGGAAC_S48_L008_subsamp_R2_001.fq SLIDINGWINDOW:4:20 LEADING:3 TRAILING:3 ILLUMINACLIP:${HOME}/barcodes.fa:2:30:12 MINLEN:25
+
+trimmomatic PE -threads 24 -baseout ${SCR}/evansiRNAseq/trimmed/MALE_92.TRIM.fastq ${SCR}/evansiRNAseq/subsampledreads/MALE_92_GTCTACAC-GCCAAGGT_S49_L008_subsamp_R1_001.fq ${SCR}/evansiRNAseq/subsampledreads/MALE_92_GTCTACAC-GCCAAGGT_S49_L008_subsamp_R2_001.fq SLIDINGWINDOW:4:20 LEADING:3 TRAILING:3 ILLUMINACLIP:${HOME}/barcodes.fa:2:30:12 MINLEN:25
+
+
+# assemble with trinity
+Trinity --SS_lib_type RF --no_version_check --bypass_java_version_check --no_normalize_reads --seqType fq --output ${SCR}/Lutzo_assemblies/transcriptomes/L_evansi_FEMALE_91.trinity --max_memory 100G --left ${SCR}/evansiRNAseq/trimmed/FEMALE_91.TRIM_1P.fastq --right ${SCR}/evansiRNAseq/trimmed/FEMALE_91.TRIM_2P.fastq --CPU 24 --inchworm_cpu 12 --full_cleanup
+
+Trinity --SS_lib_type RF --no_version_check --bypass_java_version_check --no_normalize_reads --seqType fq --output ${SCR}/Lutzo_assemblies/transcriptomes/L_evansi_MALE_92.trinity --max_memory 100G --left ${SCR}/evansiRNAseq/trimmed/MALE_92.TRIM_1P.fastq --right ${SCR}/evansiRNAseq/trimmed/MALE_92.TRIM_2P.fastq --CPU 24 --inchworm_cpu 12 --full_cleanup
