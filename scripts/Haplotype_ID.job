@@ -61,3 +61,6 @@ show-coords -r -c -l nucmer.delta > nucmer.masked.coords
 
 #mummerplot --png female2male.nucmer.delta
 mummerplot --png --size large -p female_haplotypes -f nucmer.delta
+
+
+##################### alternative programs to visualize variants: SAMPLOT, PLOTSR, GENEBASE
