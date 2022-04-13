@@ -1,0 +1,98 @@
+#!/bin/bash
+#SBATCH -p general
+#SBATCH -J ShapeIt
+##SBATCH --ntasks=1
+#SBATCH --mem 30Gb
+#SBATCH --cpus-per-task=24
+#SBATCH -t 4-0:00:00
+#SBATCH --output shapeit_%j.log
+
+
+## script runs ShapeIt to phase WGS data, then eventually produce trees.
+
+module purge
+. ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
+conda deactivate
+conda deactivate
+ml shapeit/2.837 gatk/4.1.9.0 picard/2.23.4
+
+# internal variables!
+BAMLIST=$(pwd)
+BAMLIST+="/samplelist.txt"
+REF="$PROJ/genomes/Lu_longipalpis_female_1.0.fa"
+VCF="${SCR}/longipalpis_ms/pixy_allsites_filtered_biallelic/lutzo_all_sites.filtered.vcf.gz"
+DIR=$(pwd)
+
+## This script runs the Read Aware Phasing described in O. Delaneau, B. Howie, A. Cox, J-F. Zagury, J. Marchini (2013) Haplotype estimation using sequence reads. American Journal of Human Genetics 93 (4) 787-696
+## ShapeIt runs on a per chromosome basis, so extract chromosomes
+
+
+# index ye olde vcf file
+gatk IndexFeatureFile  -I $VCF
+
+# index each bam file
+ml samtools
+for bam in $(cat $BAMLIST)
+do
+samtools index $bam
+done
+
+
+
+cd ${SCR}/longipalpis_ms/
+mkdir phased
+cd phased
+
+# Iterate through scaffolds
+for scaf in 'HiC_scaffold_1' 'HiC_scaffold_2' 'HiC_scaffold_3' 'HiC_scaffold_4'; do \
+
+# select each chromosome in order, populate a single VCF
+gatk SelectVariants \
+-R ${REF} \
+-V ${VCF} \
+--restrict-alleles-to BIALLELIC \
+-O ${VCF}'_'${scaf}'.vcf' \
+-L ${scaf}
+
+
+
+### extract PIRs
+# this requires a bam list , format:
+# Read_ID Absolute_path Reference_sequence(field @SQ in BAM header)
+# eg:
+# NA12891 NA12891.bam 20
+# NA12892 NA12892.bam 20
+
+# format bam list
+> ${scaf}.bamlist
+for bam in $(cat $BAMLIST)
+do
+  SM=$(basename $bam | sed "s/.dedupd.bam//g")
+  printf "$SM\t$bam\tSN:$scaf\n" >> ${scaf}.bamlist
+done
+
+#### IMPORTANT NOTE: This extractPIRs script is a direct download from the ShapeIt website, and not the one included in the ShapeIt module
+${PROJ}/software/extractPIRs.v1.r68.x86_64/extractPIRs \
+--bam ${scaf}.bamlist \
+--vcf ${VCF}'_'${scaf}'.vcf' \
+--out ${scaf}'_PIRsList' \
+--base-quality 20 \
+--read-quality 20 \
+--thread 24
+
+
+# assemble phased haplotypes
+shapeit -assemble \
+--input-vcf ${VCF}'_'${scaf}'.vcf' \
+--input-pir ${scaf}'_PIRsList' \
+-O ${scaf}_phased \
+--thread 24
+
+
+python2 ${DIR}/shapeit2phylip.py \
+${SCR}/longipalpis_ms/phased/ \
+${scaf}_phased.sample \
+${scaf}_phased.haps \
+1000
+
+done
