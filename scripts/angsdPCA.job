@@ -1,0 +1,121 @@
+#!/bin/bash
+#SBATCH --ntasks 1
+#SBATCH -t 4-0:00:00
+#SBATCH --job-name=angsdPCA
+#SBATCH --output=angsdPCA_%j.log
+#SBATCH --cpus-per-task=24
+#SBATCH --partition=general
+#SBATCH --mem=400Gb ## I used 400Gb to create the beagle file
+
+SCR="/pine/scr/a/s/astuck"
+out="$SCR/longipalpis_ms"
+angsddir="$SCR/longipalpis_ms/angsd"
+bamlist=$(pwd)
+bamlist+="/samplelist.txt"
+
+mkdir $out
+mkdir ${angsddir}
+mkdir ${angsddir}/pca
+
+#### make a list of all bam files in a text file:
+# remove " from R/Windows
+sed -i 's/"//g' $HOME/longipalpis_ms/samples2use.tsv
+
+# get only sample names:
+cut -f 1 $HOME/longipalpis_ms/samples2use.tsv | grep -v "Sample" > samplelist.txt
+
+# add "merged.bam"
+sed -zi "s/\n/.dedupd.bam\n/g" samplelist.txt
+
+# add path to samples
+sed -i "s&^&$SCR/AllLutzoSNPs/bams/&g" samplelist.txt
+
+# remove one sample that was mapped to a prior version....
+# grep -v "LU_LONG_F_P12_GGACTTGG-CGCAGACG_S20" samplelist.txt > angsdtmp
+# mv angsdtmp samplelist.txt
+
+echo Analyzing data from $bamlist
+
+printf "Using samples....\n"
+cat $bamlist
+
+
+# create a beagle file with genotype probabilities
+/proj/matutelb/software/angsd/angsd -GL 2 -out ${angsddir}/filtered_nosim -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam $bamlist -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle ${angsddir}/filtered_nosim.beagle.gz -admix -out ${angsddir}/pca/filtered_nosim \
+    -threads 24
+
+# sample list from bamlist
+awk -F\\/ '{print $(NF)}' $bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/longipalpis_samples.txt
+
+
+
+
+########################
+###### CHR 1 ###########
+########################
+
+mkdir ${angsddir}/pca/chr1
+### #extract only chr 1
+# new bamlist
+> chr1.bamlist
+
+for bam in $(cat $bamlist)
+do
+echo Extracting ch1 from $bam
+samtools view $bam HiC_scaffold_1 --threads 24 -b > $bam.chr1.bam
+echo $bam.chr1.bam >> chr1.bamlist
+done
+
+
+
+
+ml samtools
+# create a beagle file with genotype probabilities
+/proj/matutelb/software/angsd/angsd -GL 2 -out ${angsddir}/chr1 -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam chr1.bamlist  -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle ${angsddir}/chr1.beagle.gz -admix -out ${angsddir}/pca/chr1 \
+    -threads 24
+
+# sample list from bamlist
+awk -F\\/ '{print $(NF)}' chr1.bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/longipalpis_chr1_samples.txt
+
+
+
+
+########################
+##### AUTOSOMES ########
+########################
+
+mkdir ${angsddir}/pca/autosomes
+
+### #extract only autosomes
+# new bamlist
+> autosomes.bamlist
+
+for bam in $(cat $bamlist)
+do
+echo Extracting ch1 from $bam
+samtools view $bam HiC_scaffold_2 HiC_scaffold_3 HiC_scaffold_4 --threads 24 -b > $bam.autosomes.bam
+echo $bam.autosomes.bam >> autosomes.bamlist
+done
+
+
+
+
+ml samtools
+# create a beagle file with genotype probabilities
+/proj/matutelb/software/angsd/angsd -GL 2 -out ${angsddir}/autosomes -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam autosomes.bamlist  -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle ${angsddir}/autosomes.beagle.gz -admix -out ${angsddir}/pca/autosomes \
+    -threads 24
+
+# sample list from bamlist
+awk -F\\/ '{print $(NF)}' chr1.bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/longipalpis_chr1_samples.txt
