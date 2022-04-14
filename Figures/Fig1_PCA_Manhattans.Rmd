@@ -1,0 +1,312 @@
+---
+title: "Lutzomyia longipalpis mansucript, Figure 1"
+author: "Adam Stuckert"
+date: "4/13/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+if (!require('viridis')) install.packages('viridis'); library('viridis')
+if (!require('ggplot2')) install.packages('ggplot2'); library('ggplot2')
+if (!require('tidyverse')) install.packages('tidyverse'); library('tidyverse')
+library(cowplot)
+library(gridExtra)
+dir.create("figures")
+
+```
+
+## Purpose
+
+## PCA whole genome
+
+```{r input data}
+# read in data from pcangsd
+C <- as.matrix(read.table("data/filtered_nosim.cov"))
+
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat <- e$vectors[,1:2]
+colnames(pcadat) <- c("PC1","PC2")
+
+# merge pc1/pc2 with metadata, but use corrected metadata:
+# samples
+lutzo <- read.table("SamplesSex.tsv", header = TRUE, sep = "\t")
+
+pcadat <- cbind(pcadat, lutzo)
+```
+
+
+
+```{R PCA whole genome}
+pca <-   ggplot(pcadat, aes(x = PC1, y = PC2, color = Sex)) +
+    #stat_ellipse(aes(group = species), type = "t", level = 0.95, size = 1.25, show.legend = FALSE) +
+    geom_point(size = 6, show.legend = TRUE) +  # , shape = "\u269C"
+    scale_color_manual(values = c("hotpink1", "dodgerblue")) + scale_fill_manual(values = c("hotpink1", "dodgerblue")) +
+    xlab(paste0("PC1 (", pc1var, "%)")) +
+    ylab(paste0("PC2 (", pc2var, "%)")) +
+    # coord_fixed() +
+    theme_bw() + theme(text=element_text(size=23)) +
+  ggtitle("Whole genome")
+
+pca
+# save
+ggsave("figures/PCA_longipalpis_fixedsexes_presentation.png", width = 12, height = 9, dpi = 600)
+```
+
+
+
+## PCA of Chromosome 1
+
+```{r input data}
+# read in data from pcangsd
+C <- as.matrix(read.table("data/chr1.cov"))
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat <- e$vectors[,1:2]
+colnames(pcadat) <- c("PC1","PC2")
+
+# merge pc1/pc2 with metadata, but use corrected metadata:
+# samples
+lutzo <- read.table("SamplesSex.tsv", header = TRUE, sep = "\t")
+
+pcadat <- cbind(pcadat, lutzo)
+```
+
+
+```{R PCA chr 1}
+pca_chr1 <-   ggplot(pcadat, aes(x = PC1, y = PC2, color = Sex)) +
+    #stat_ellipse(aes(group = species), type = "t", level = 0.95, size = 1.25, show.legend = FALSE) +
+    geom_point(size = 6, show.legend = TRUE) +  # , shape = "\u269C"
+    scale_color_manual(values = c("hotpink1", "dodgerblue")) + scale_fill_manual(values = c("hotpink1", "dodgerblue")) +
+  xlab(paste0("PC1 (", pc1var, "%)")) +
+    ylab(paste0("PC2 (", pc2var, "%)")) +
+    # coord_fixed() +
+    theme_bw() + theme(text=element_text(size=23))+
+  ggtitle("Chromosome 1")
+
+pca_chr1
+# save
+ggsave("figures/PCA_longipalpis_fixedsexes_presentation_chr1.png", width = 12, height = 9, dpi = 600)
+```
+
+
+### PCA of autosomes only
+
+```{r input data}
+# read in data from pcangsd
+C <- as.matrix(read.table("data/autosomes.cov"))
+
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat <- e$vectors[,1:2]
+colnames(pcadat) <- c("PC1","PC2")
+
+# merge pc1/pc2 with metadata, but use corrected metadata:
+# samples
+lutzo <- read.table("SamplesSex.tsv", header = TRUE, sep = "\t")
+
+pcadat <- cbind(pcadat, lutzo)
+```
+
+
+
+```{R PCA autosomes}
+pca_autos <-   ggplot(pcadat, aes(x = PC1, y = PC2, color = Sex)) +
+    #stat_ellipse(aes(group = species), type = "t", level = 0.95, size = 1.25, show.legend = FALSE) +
+    geom_point(size = 6, show.legend = TRUE) +  # , shape = "\u269C"
+    scale_color_manual(values = c("hotpink1", "dodgerblue")) + scale_fill_manual(values = c("hotpink1", "dodgerblue")) +
+  xlab(paste0("PC1 (", pc1var, "%)")) +
+    ylab(paste0("PC2 (", pc2var, "%)")) +
+    # coord_fixed() +
+    theme_bw() + theme(text=element_text(size=23))+
+  ggtitle("Autosomes")
+
+pca_autos
+# save
+ggsave("figures/PCA_longipalpis_fixedsexes_presentation_chr1.png", width = 12, height = 9, dpi = 600)
+```
+
+
+### Population genomics
+
+```{r manhattan function}
+
+#### USAGE:
+
+# takes a dataframe and makes a manhattan plot.
+#  EX: manhattan(fst, "chromosome", chromosome, "avg_wc_fst", window_pos_2, "black", "gold")
+
+# requires: specify dataframe, the column for chromosomes (in quotes), the column for chromosoms (NO QUOTES), column of fst values (in quotes), maximum base pair position of a window (window == row) NOT IN QUOTES, color1 (in quotes), color2 (in quotes)
+
+# dependencies: ggplot2, tidyverse/dplyr
+
+# additional note, some of this is derived from:  https://danielroelfs.com/blog/how-i-create-manhattan-plots-using-ggplot/
+manhattan_fst <- function(df, chrom_col, chrom_col2, data_col, window_pos, color1, color2) {
+  # first, drop all NA values
+  df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+
+  # identify the 95% and 99% percentile
+  quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+  ylim <- c(0,(max(df[[data_col]]) + 0.2))
+
+  ## create position data
+  cumulative_data <- df %>%
+    group_by({{chrom_col2}}) %>%
+    summarise(max_bp = max({{window_pos}})) %>%
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>%
+    select({{chrom_col2}}, bp_add)
+
+
+  df <- merge(df, cumulative_data, by = chrom_col)
+
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+
+  # chromosome centroid for graph
+  axis_set <- df %>%
+    group_by({{chrom_col2}}) %>%
+    summarize(center = mean(tot_bp))
+
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = as_factor(get(chrom_col)))) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    #scale_y_continuous(expand = c(0,0), limits = ylim) +
+    scale_color_manual(values = rep(c(color1, color2), unique(length(axis_set[[chrom_col]])))) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome",
+         y = expression(F[ST])) +
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=23)) +
+    geom_hline(yintercept=my_threshold, linetype="dashed", color = "red", size = 1.25)
+
+  manhplot
+}
+
+
+## and a version with a modifiable Y label:
+manhattan <- function(df, chrom_col, chrom_col2, data_col, window_pos, ylabel, color1, color2) {
+  # first, drop all NA values
+  df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+
+  # identify the 95% and 99% percentile
+  quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+  ylim <- c(0,(max(df[[data_col]]) + 0.2))
+
+  ## create position data
+  cumulative_data <- df %>%
+    group_by({{chrom_col2}}) %>%
+    summarise(max_bp = max({{window_pos}})) %>%
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>%
+    select({{chrom_col2}}, bp_add)
+
+
+  df <- merge(df, cumulative_data, by = chrom_col)
+
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+
+  # chromosome centroid for graph
+  axis_set <- df %>%
+    group_by({{chrom_col2}}) %>%
+    summarize(center = mean(tot_bp))
+
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = as_factor(get(chrom_col)))) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    #scale_y_continuous(expand = c(0,0), limits = ylim) +
+    scale_color_manual(values = rep(c(color1, color2), unique(length(axis_set[[chrom_col]])))) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome",
+         y = ylabel) +
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=23)) +
+    geom_hline(yintercept=my_threshold, linetype="dashed", color = "red", size = 1.25)
+
+  manhplot
+}
+```
+
+
+## Fst analyses
+
+First, analyze Fst values imputed by pixy.
+
+```{r fst plot}
+fst <- read.table("data/pixy.swapped.filtered.1kbp_fst.txt", header = TRUE, sep = "\t")
+fst <- fst %>% filter(chromosome == c("HiC_scaffold_1", "HiC_scaffold_2", "HiC_scaffold_3", "HiC_scaffold_4"))
+# relabel "scaffolds"
+fst$chromosome <- gsub(pattern = "HiC_scaffold_", replacement = "", fst$chromosome)
+
+fst.manhat <- manhattan(fst, "chromosome", chromosome, "avg_wc_fst", window_pos_2, expression(F[ST]), "black", "gold")
+ggsave("figures/ManhattanFst.png", width = 12, height = 9, dpi = 600)
+#manhattan(fst, "chromosome", chromosome, "avg_wc_fst", window_pos_2, "F[ST]", "black", "gold")
+```
+
+
+
+## Pi analyses
+
+Pi is within a population, females or males in this case.
+```{r pi}
+pi <- read.table("data/pixy.swapped.filtered.1kbp_pi.txt", header = TRUE, sep = "\t")
+pi <- pi %>% filter(chromosome == c("HiC_scaffold_1", "HiC_scaffold_2", "HiC_scaffold_3", "HiC_scaffold_4"))
+dim(pi)
+pi <- pi %>% filter(avg_pi != "NaN")
+dim(pi)
+pi$chromosome <- gsub(pattern = "HiC_scaffold_", replacement = "", pi$chromosome)
+mpi <- pi %>% filter(pop == "Male")
+
+fpi <- pi %>% filter(pop == "Female")
+
+female.manhat <- manhattan(fpi, "chromosome", chromosome, "avg_pi", window_pos_2, expression(pi[females]), "hotpink", "hotpink3")
+male.manhat <- manhattan(mpi, "chromosome", chromosome, "avg_pi", window_pos_2, expression(pi[males]), "dodgerblue", "dodgerblue3")
+```
+
+
+## MERGE all figures
+
+```{r fst pi pi}
+
+grid.arrange(pca, fst.manhat, pca_chr1, female.manhat, pca_autos, male.manhat, nrow = 3, ncol = 2)
+
+plot <- arrangeGrob(pca, fst.manhat, pca_chr1, female.manhat, pca_autos, male.manhat, nrow = 3, ncol = 2)
+ggsave("figures/Fig1_PCAs_Manhattans.png", plot, width = 12, height = 12, dpi = 600)
+```
