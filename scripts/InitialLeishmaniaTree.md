@@ -198,9 +198,14 @@ java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i whole_genome_newick.contre
 
 Make a figure of the tree in R for funzies. Pop this newick tree into Cactus and do full genome MSA.
 
-Cactus requires all genomes to be soft-masked. Which, frankly, is a bit annoying. Soft mask assemblies with RepeatMasker.
+Cactus requires all genomes to be soft-masked. Which, frankly, is a bit annoying. So I will soft mask assemblies with RepeatMasker. But first, I need a species specific library of repeats that I can use for *Leishmania*.
 
 ``bash
+# species specific library for Leish
+# this uses the `famdb.py` function from RepeatMasker to extract those TE libraries into a fasta. I am using everything in euglenozaoa
+cd ${PROJ}/Leishmania_genomes/
+famdb.py -i ${PROJ}/software/anaconda3/envs/repeat_modeler2/share/RepeatMasker/Libraries/RepeatMaskerLib.h5 families --format fasta_name --ancestors --descendants euglenozoa --include-class-in-name > euglenozoa.repeats.fa
+
 cd ${PROJ}/Leishmania_genomes/genomes
 DIR=$(pwd)
 
@@ -228,13 +233,13 @@ cat << EOF > $file.repeatmasker.job
 module purge
 conda activate repeat_modeler2
 
-RepeatMasker -pa 10 -q $ASSEMBLY 
+RepeatMasker -pa 10 -q $ASSEMBLY -lib ${PROJ}/Leishmania_genomes/euglenozoa.repeats.fa -dir ${ASSNAME}_repeatmasker
 
 printf "RepeatMasker done\n\n"
 
 
 # move masked fasta
-cp $ASSEMBLY.masked $ASSNAME.masked.fa
+mv ${ASSNAME}_repeatmasker/$ASSEMBLY.masked ${ASSNAME}_repeatmasker/$ASSNAME.masked.fa
 
 EOF
 sbatch $file.repeatmasker.job
