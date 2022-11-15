@@ -189,12 +189,13 @@ cat << EOF > astral.job
 #SBATCH --mem=10g
 #SBATCH -n 1
 #SBATCH --cpus-per-task=10
-#SBATCH -o $ALN.raxml._%j.out
+#SBATCH -o astral._%j.out
 
 # concatenate all the trees together
 mv RAxML_bestTree.* raxml_out/
-cat raxml_out/RAxML_bestTree.* raxml_out/AllRaxmlBestTrees.newick
-
+cat raxml_out/RAxML_bestTree.* > raxml_out/AllRaxmlBestTrees.newick
+# get rid of "|" characters--they will kill the astral run:
+sed -i "s/|/_/g" AllRaxmlBestTrees.newick
 
 # run astral
 module purge
