@@ -180,7 +180,14 @@ Get the best trees, merge 'em, build an astral consensus tree of all the genes.
 
 
 ```bash
+# concatenate all the trees together
 
+
+# run astral
+module purge
+. ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
+conda activate base
+java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i whole_genome_newick.contree -o whole_genome_output_consensus.newick -t 3
 
 
 
