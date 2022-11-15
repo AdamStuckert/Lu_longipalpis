@@ -200,7 +200,7 @@ Make a figure of the tree in R for funzies. Pop this newick tree into Cactus and
 
 Cactus requires all genomes to be soft-masked. Which, frankly, is a bit annoying. So I will soft mask assemblies with RepeatMasker. But first, I need a species specific library of repeats that I can use for *Leishmania*.
 
-``bash
+```bash
 # species specific library for Leish
 # this uses the `famdb.py` function from RepeatMasker to extract those TE libraries into a fasta. I am using everything in euglenozaoa
 cd ${PROJ}/Leishmania_genomes/
