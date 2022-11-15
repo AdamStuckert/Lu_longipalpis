@@ -245,6 +245,8 @@ EOF
 sbatch $file.repeatmasker.job
 done
 ```
+
+
 Cactus requires a file of all the assemblies and their full path as an input file. Make that.
 
 ```bash
