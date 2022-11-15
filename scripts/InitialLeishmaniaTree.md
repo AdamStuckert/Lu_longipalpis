@@ -11,7 +11,7 @@ I downloaded genomes on 11 Nov 2022.
 conda activate ncbi_datasets
 
 # data for later:
-datasets summary genome taxon leishmania --as-json-lines | dataformat tsv genome --fields accession,assminfo-name,annotinfo-name,annotinfo-release-date,organism-name > leishmanig_genoes_info.tsv
+datasets summary genome taxon leishmania --as-json-lines | dataformat tsv genome --fields accession,assminfo-name,annotinfo-name,annotinfo-release-date,organism-name > leishmani_genomes_info.tsv
 
 #2 download genomes:
 datasets download genome taxon leishmania
@@ -21,6 +21,17 @@ unzip ncbi_datasets.zip
 
 mkdir genomes
 mv */*/*fna genomes/
+```
+
+ALSO: I need an outgroup! I will use _Endotrypanum monterogeii_ it is also in the Clade Leishmaniatae and has a chromosome level assembly.
+
+```bash
+datasets summary genome taxon "Endotrypanum monterogeii" --as-json-lines | dataformat tsv genome --fields accession,assminfo-name,annotinfo-name,annotinfo-release-date,organism-name >> leishmanig_genomes_info.tsv
+
+datasets download genome taxon "Endotrypanum monterogeii"
+unzip ncbi_dataset.zip
+
+mv ncbi_dataset/data/GCA_000333855.2/GCA_000333855.2_Endotrypanum_monterogeii-LV88-1.0.3_genomic.fna genomes/
 ```
 
 
