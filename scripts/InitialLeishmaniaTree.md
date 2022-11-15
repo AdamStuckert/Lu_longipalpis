@@ -180,19 +180,31 @@ Get the best trees, merge 'em, build an astral consensus tree of all the genes.
 
 
 ```bash
+cd alignments
+cat << EOF > astral.job
+#!/bin/bash
+#SBATCH -p general
+#SBATCH -N 1
+#SBATCH -t 4-00:00:00
+#SBATCH --mem=10g
+#SBATCH -n 1
+#SBATCH --cpus-per-task=10
+#SBATCH -o $ALN.raxml._%j.out
+
 # concatenate all the trees together
+mv RAxML_bestTree.* raxml_out/
+cat raxml_out/RAxML_bestTree.* raxml_out/AllRaxmlBestTrees.newick
 
 
 # run astral
 module purge
 . ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
 conda activate base
-java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i whole_genome_newick.contree -o whole_genome_output_consensus.newick -t 3
+cd raxml_out
+java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i AllRaxmlBestTrees.newick -o AstralConsensus.newick -t 3
 
-
-
-
-
+EOF
+sbatch astral.job
 ```
 
 
