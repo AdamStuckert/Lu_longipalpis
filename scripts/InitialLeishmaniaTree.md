@@ -198,7 +198,63 @@ java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i whole_genome_newick.contre
 
 Make a figure of the tree in R for funzies. Pop this newick tree into Cactus and do full genome MSA.
 
+Cactus requires all genomes to be soft-masked. Which, frankly, is a bit annoying. Soft mask assemblies with RepeatMasker.
 
+``bash
+cd ${PROJ}/Leishmania_genomes/genomes
+DIR=$(pwd)
+
+for file in ls *fna
+do
+
+ASSEMBLY="${DIR}/${file}"
+ASSNAME=$(basename $ASSEMBLY)
+
+cat << EOF > $file.repeatmasker.job
+#!/bin/bash
+#SBATCH -p general
+#SBATCH -N 1
+#SBATCH -t 4-00:00:00
+#SBATCH --mem=10g
+#SBATCH -n 1
+#SBATCH --cpus-per-task=10
+#SBATCH -o $file.repeatmasker._%j.out
+
+# load conda source script!
+. ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
+
+ printf "Running Repeat Masker on $ASSEMBLY"
+
+module purge
+conda activate repeat_modeler2
+
+RepeatMasker -pa 10 -q $ASSEMBLY 
+
+printf "RepeatMasker done\n\n"
+
+
+# move masked fasta
+cp $ASSEMBLY.masked $ASSNAME.masked.fa
+
+EOF
+sbatch $file.repeatmasker.job
+done
+```
+Cactus requires a file of all the assemblies and their full path as an input file. Make that.
+
+```bash
+# input file of assemblies for cactus:
+cd ${PROJ}/Leishmania_genomes/genomes
+DIR=$(pwd)
+
+for file in ls *fna
+do
+printf "$file\t${DIR}/${file}\n" >> Assemblies4Cactus.tsv
+done
+
+
+
+```
 
 
 
