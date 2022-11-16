@@ -136,7 +136,7 @@ cat << EOF > $file.mafft.job
 #SBATCH --cpus-per-task=10
 #SBATCH -o $file.mafft_%j.out
 
-ml Core/mafft/7.490
+ml mafft/7.490
 
 mafft --auto --amino --thread 10 $file > alignments/$file.aln
 
@@ -180,7 +180,7 @@ raxml \
     -x 12345 \
     -# 100 \
     -s ${ALN} \
-    -n raxml_out/$SUF
+    -n $SUF
 
 EOF
 sbatch $ALN.raxml.job
