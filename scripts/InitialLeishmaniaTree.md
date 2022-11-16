@@ -95,8 +95,11 @@ done
 We can't build a phylogeny with genes that are only complete in one species. So we need to filter those out. Realistically, having only 2 species/samples present is also not taht helpful or informative. I found that if I use 3 samples/species I recover most of the BUSCOS (72 out of 130), but if I increase this number to 5 I get only a quarter (32 out of 130). This is due to the presence of genomes that are not at all contiguous.
 
 ```bash
-# First, identify all 
 
+# remove files from previous run(s)
+rm complete_busco_ids_with_counts.txt complete_busco_ids.txt
+
+# First, identify all 
 
 for file in $(find . -name "full_table.tsv")
 do
