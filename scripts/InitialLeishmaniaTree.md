@@ -281,11 +281,18 @@ Cactus requires a file of all the assemblies and their full path as an input fil
 ```bash
 # input file of assemblies for cactus:
 cd ${PROJ}/Leishmania_genomes/genomes
-DIR=$(pwd)
+DIR="$(pwd)/masked_assemblies"
+mkdir masked_assemblies
 
-for file in ls *fna
+#remove files if it exists
+rm Assemblies4Cactus.tsv
+rm masked_assemblies/*fna.masked
+
+for file in $(find . -name "*fna.masked")
 do
-printf "$file\t${DIR}/${file}\n" >> Assemblies4Cactus.tsv
+cp $file masked_assemblies
+ASSNAME=$(basename $file)
+printf "$ASSNAME\t${DIR}/${ASSNAME}\n" >> Assemblies4Cactus.tsv
 done
 
 
