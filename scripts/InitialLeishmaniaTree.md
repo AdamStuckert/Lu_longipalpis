@@ -218,7 +218,7 @@ module purge
 . ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
 conda activate base
 cd raxml_out
-java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i AllRaxmlBestTrees.newick -o AstralConsensus.newick -t 3
+java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i AllRaxmlBestTrees.newick -o AstralConsensus.newick -t 3 --outgroup GCA_000333855.2_Endotrypanum_monterogeii-LV88-1.0.3
 
 EOF
 sbatch astral.job
