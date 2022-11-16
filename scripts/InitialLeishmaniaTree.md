@@ -299,6 +299,54 @@ done
 
 ```
 
+Run the first round of progressive cactus!
+
+```bash
+
+cat << EOF > cactus.round1.job
+#!/bin/bash
+#SBATCH -p general
+#SBATCH -N 1
+#SBATCH -t 4-00:00:00
+#SBATCH --mem=10g
+#SBATCH -n 1
+#SBATCH --cpus-per-task=10
+#SBATCH -o cactus._%j.out
+
+# load conda source script!
+. ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
+
+ printf "Running Repeat Masker on $ASSEMBLY"
+
+module purge
+conda activate repeat_modeler2
+
+# breaking cactus in to steps, so it doesnt spawn tons of jobs and so I can try and debug when it goes sideways
+printf "###########################\n\n"
+printf "###### Cactus prepare ######\n\n"
+printf "###########################\n\n"
+
+cd ${PROJ}/Leishmania_genomes/genomes
+mkdir ${SCR}/Leishmania_genomes/
+mkdir ${SCR}/Leishmania_genomes/cactus
+
+#cactus-prepare ${PROJ}/Leishmania_genomes/genomes/Assemblies4Cactus.tsv --outDir ${PROJ}/Leishmania_genomes/genomes/cactus_steps --outSeqFile ${PROJ}/Leishmania_genomes/genomes/cactus_steps/leishmania.txt --outHal ${PROJ}/Leishmania_genomes/genomes/cactus_steps/leishmania.hal --jobStore  ${SCR}/Leishmania_genomes/cactus
+
+cactus_dir=$(which cactus)
+cd $cactus_dir
+cactus ${SCR}/Leishmania_genomes/
+cactus ${SCR}/Leishmania_genomes/cactus Assemblies4Cactus.tsv leishmania.hal --batchSystem Slurm --binariesMode local
+
+
+
+
+
+EOF
+sbatch cactus.round1.job
+done
+
+```
+
 
 
 
