@@ -117,7 +117,7 @@ awk '$NF > 3 {print $2}' complete_busco_ids_with_counts.txt > final_busco_ids.tx
 while read line
 do
 echo $line
-cat busco_aa/*_${line}.faa >> ${line}_aa.fasta
+cat busco_aa/*_${line}.faa >> busco_aa/${line}_aa.fasta
 done < final_busco_ids.txt
 ```
 
