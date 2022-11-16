@@ -206,6 +206,7 @@ cat << EOF > astral.job
 #SBATCH -n 1
 #SBATCH --cpus-per-task=10
 #SBATCH -o astral._%j.out
+#SBATCH --dependency=afterok:59620825,59620770,59620779
 
 # concatenate all the trees together
 mv RAxML_bestTree.* raxml_out/
