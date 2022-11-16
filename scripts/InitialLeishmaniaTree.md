@@ -211,8 +211,10 @@ cat << EOF > astral.job
 # concatenate all the trees together
 mv RAxML_bestTree.* raxml_out/
 cat raxml_out/RAxML_bestTree.* > raxml_out/AllRaxmlBestTrees.newick
+
+# NEED TO GET RID OF EVERYTHING FROM "|" TO ":" IN EACH GENOME BECAUSE ITS LISTED AS GENOME|BUSCO:SCORES
 # get rid of "|" characters--they will kill the astral run:
-sed -i "s/|/_/g" AllRaxmlBestTrees.newick
+#sed -i "s/|/_/g" AllRaxmlBestTrees.newick
 
 # run astral
 module purge
