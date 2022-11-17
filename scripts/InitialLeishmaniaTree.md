@@ -288,8 +288,11 @@ DIR="$(pwd)/masked_assemblies"
 mkdir masked_assemblies
 
 #remove files if it exists
-rm Assemblies4Cactus.tsv
 rm masked_assemblies/*fna.masked
+
+# append newick tree from astral on to this file.
+# look i should have fixed accession names programmatically but i was tired and it was taking too long so i did it manually.
+cat .AstralConsensus.fixed.newick > Assemblies4Cactus.tsv
 
 for file in $(find . -name "*fna.masked")
 do
@@ -334,15 +337,14 @@ cd ${PROJ}/Leishmania_genomes/genomes
 mkdir ${SCR}/Leishmania_genomes/
 mkdir ${SCR}/Leishmania_genomes/cactus
 
-#cactus-prepare ${PROJ}/Leishmania_genomes/genomes/Assemblies4Cactus.tsv --outDir ${PROJ}/Leishmania_genomes/genomes/cactus_steps --outSeqFile ${PROJ}/Leishmania_genomes/genomes/cactus_steps/leishmania.txt --outHal ${PROJ}/Leishmania_genomes/genomes/cactus_steps/leishmania.hal --jobStore  ${SCR}/Leishmania_genomes/cactus
+
 
 cactus_dir=$(which cactus)
-cd $cactus_dir
-cactus ${SCR}/Leishmania_genomes/
+
 cactus ${SCR}/Leishmania_genomes/cactus Assemblies4Cactus.tsv leishmania.hal --batchSystem Slurm --binariesMode local
 
 
-
+# note...this is one of those programs that you have to run in tmux and it spawns jobs. not ideal.
 
 
 EOF
