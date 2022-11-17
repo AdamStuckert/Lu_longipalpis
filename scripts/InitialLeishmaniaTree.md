@@ -212,16 +212,16 @@ cat << EOF > astral.job
 mv RAxML_bestTree.* raxml_out/
 cat raxml_out/RAxML_bestTree.* > raxml_out/AllRaxmlBestTrees.newick
 
-# NEED TO GET RID OF EVERYTHING FROM "|" TO ":" IN EACH GENOME BECAUSE ITS LISTED AS GENOME|BUSCO:SCORES
-# get rid of "|" characters--they will kill the astral run:
-#sed -i "s/|/_/g" AllRaxmlBestTrees.newick
+# get rid of busco gene ids so we dont have many instances of the same assembly:
+sed -i "s/|[^:]*:/:/g" raxml_out/AllRaxmlBestTrees.newick
+
 
 # run astral
 module purge
 . ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
 conda activate base
 cd raxml_out
-java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i AllRaxmlBestTrees.newick -o AstralConsensus.newick -t 3 --outgroup GCA_000333855.2_Endotrypanum_monterogeii-LV88-1.0.3
+java -jar ${PROJ}/software/Astral/astral.5.7.8.jar -i AllRaxmlBestTrees.newick -o AstralConsensus.newick -t 3 --outgroup GCA_000333855.2_ENDOTRYPANUM
 
 EOF
 sbatch astral.job
