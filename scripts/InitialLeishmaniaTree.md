@@ -295,7 +295,8 @@ for file in $(find . -name "*fna.masked")
 do
 cp $file masked_assemblies
 ASSNAME=$(basename $file)
-printf "$ASSNAME\t${DIR}/${ASSNAME}\n" >> Assemblies4Cactus.tsv
+ACCN=$(echo $ASSNAME | cut -f1,2 -d "_")
+printf "$ACCN\t${DIR}/${ASSNAME}\n" >> Assemblies4Cactus.tsv
 done
 
 
