@@ -326,7 +326,7 @@ cat << EOF > cactus.round1.job
  printf "Running Repeat Masker on $ASSEMBLY"
 
 module purge
-conda activate repeat_modeler2
+conda activate cactus
 
 # breaking cactus in to steps, so it doesnt spawn tons of jobs and so I can try and debug when it goes sideways
 printf "###########################\n\n"
@@ -341,7 +341,13 @@ mkdir ${SCR}/Leishmania_genomes/cactus
 
 cactus_dir=$(which cactus)
 
-cactus ${SCR}/Leishmania_genomes/cactus Assemblies4Cactus.tsv leishmania.hal --batchSystem Slurm --binariesMode local
+
+srun --time=5-00:00 --pty bash -i
+module purge
+conda activate cactus
+source ~/.bash_profile
+cd ${PROJ}/Leishmania_genomes/genomes
+cactus ${SCR}/Leishmania_genomes/cactus Assemblies4Cactus.tsv leishmania.hal --batchSystem Slurm --binariesMode local --restart 2>&1 | tee cactus_run.txt
 
 
 # note...this is one of those programs that you have to run in tmux and it spawns jobs. not ideal.
