@@ -333,10 +333,6 @@ printf "###########################\n\n"
 printf "###### Cactus prepare ######\n\n"
 printf "###########################\n\n"
 
-cd ${PROJ}/Leishmania_genomes/genomes
-mkdir ${SCR}/Leishmania_genomes/
-mkdir ${SCR}/Leishmania_genomes/cactus
-
 
 
 cactus_dir=$(which cactus)
@@ -344,8 +340,10 @@ cactus_dir=$(which cactus)
 
 srun --time=5-00:00 --pty bash -i
 module purge
-conda activate cactus
 source ~/.bash_profile
+conda activate cactus
+mkdir ${SCR}/Leishmania_genomes/
+mkdir ${SCR}/Leishmania_genomes/cactus
 cd ${PROJ}/Leishmania_genomes/genomes
 cactus ${SCR}/Leishmania_genomes/cactus Assemblies4Cactus.tsv leishmania.hal --batchSystem Slurm --binariesMode local --restart 2>&1 | tee cactus_run.txt
 
