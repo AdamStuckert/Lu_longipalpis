@@ -357,7 +357,22 @@ done
 
 ```
 
+```bash
+# speed up test...
 
+srun --time=5-00:00 --mem=100G --cpus-per-task 24 --pty bash -i
+module purge
+source ~/.bash_profile
+conda activate cactus
+mkdir ${SCR}/Leishmania_genomes/
+mkdir ${SCR}/Leishmania_genomes/cactus_speedtest
+cd ${PROJ}/Leishmania_genomes/genomes
+cactus ${SCR}/Leishmania_genomes/cactus_speedtest Assemblies4Cactus.tsv leishmania.hal --batchSystem Slurm --binariesMode local 2>&1 | tee cactus_run_speedtest.txt
+#--binariesMode local --restart 2>&1 | tee cactus_run.txt
+
+
+
+```
 
 
 
