@@ -1,0 +1,58 @@
+#!/bin/bash
+#SBATCH -J yahs # name of the job
+#SBATCH -o uahs_%j.out 
+#SBATCH -t 9-0:00:00 # time requested
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=48
+#SBATCH --mem=150GB
+
+
+PICARD=/project/stuckert/software/picard.jar
+
+samtools view -b -F 4 /project/stuckert/users/Stuckert/psychodids/Lu_long_female/juicer/splits/Longipalpis_Female.fastq.gz.sam > mapped.bam
+samtools sort mapped.bam > mapped.sorted.bam
+java -jar $PICARD MarkDuplicates \
+      I=mapped.sorted.bam \
+      O=mapped.sorted.deduplicated.bam \
+      M=marked_dup_metrics.txt
+
+samtools faidx Lu_long_female_wtdbg2.ctg.fa
+#yahs Lu_long_female_wtdbg2.ctg.fa mapped.sorted.deduplicated.bam -q 20 -o Lu_long_female_yahs
+# Arima cut sites for this project: ^GATC and G^ANTC
+yahs Lu_long_female_wtdbg2.ctg.fa mapped.sorted.deduplicated.bam  -q 30 -o Lu_long_female_yahs_q30
+
+
+## HiC contacts
+juicer pre Lu_long_female_yahs_q30.bin Lu_long_female_yahs_q30_scaffolds_final.agp Lu_long_female_wtdbg2.ctg.fa.fai | sort -k2,2d -k6,6d -T ./ --parallel=8 -S32G | awk 'NF' > alignments_sorted.txt.part
+
+
+mv alignments_sorted.txt.part alignments_sorted.txt
+
+# sorted scaffold sizes (should be from scaffolded assembly...)
+samtools faidx Lu_long_female_yahs_q30_scaffolds_final.fa
+awk '{print $1, $2}' Lu_long_female_yahs_q30_scaffolds_final.fa.fai > scaffolds_final.chrom.sizes
+export _JAVA_OPTIONS="-Xmx60g" 
+# juicer_tools pre --threads 48 alignments_sorted.txt out.hic.part scaffolds_final.chrom.sizes
+
+# mv out.hic.part out.hic
+# #juicer_tools pre out_JBAT.txt out_JBAT.hic.part <(cat out_JBAT.log  | grep PRE_C_SIZE | awk '{print $2" "$3}')
+
+#mv out_JBAT.hic.part out_JBAT.hic
+
+
+# #juicer pre Lu_long_female_yahs_q30.bin Lu_long_female_yahs_q30_scaffolds_final.agp Lu_long_female_wtdbg2.ctg.fa.fai | sort -k2,2d -k6,6d -T ./ --parallel=8 -S32G | awk 'NF' > alignments_sorted.txt.part
+juicer pre -a -o out_JBAT Lu_long_female_yahs_q30.bin Lu_long_female_yahs_q30_scaffolds_final.agp Lu_long_female_wtdbg2.ctg.fa.fai > out_JBAT.log 2>&1
+# export _JAVA_OPTIONS="-Xmx60g" 
+(juicer_tools pre out_JBAT.txt out_JBAT.hic.part <(cat out_JBAT.log  | grep PRE_C_SIZE | awk '{print $2" "$3}')) && (mv out_JBAT.hic.part out_JBAT.hic)
+
+
+### after manual curation in JBAT:
+export _JAVA_OPTIONS="-Xmx60g" 
+# juicer post -o out_JBAT out_JBAT.review.assembly out_JBAT.liftover.agp Lu_long_female_wtdbg2.ctg.fa
+
+  unwrap_fasta out_JBAT.FINAL.fa Lutzomyia_longipalpis_female_1.0.fa
+
+  sed -i "s/scaffold_1/chr1/" Lutzomyia_longipalpis_female_1.0.fa
+sed -i "s/scaffold_2/chr2/" Lutzomyia_longipalpis_female_1.0.fa
+sed -i "s/scaffold_3/chr3/" Lutzomyia_longipalpis_female_1.0.fa
+sed -i "s/scaffold_4/chr4/" Lutzomyia_longipalpis_female_1.0.fa
