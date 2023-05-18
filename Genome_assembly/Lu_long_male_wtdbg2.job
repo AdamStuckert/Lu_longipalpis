@@ -1,0 +1,103 @@
+#!/bin/bash
+#SBATCH -J Lu_long_male_wtdgb2 # name of the job
+#SBATCH -o Lu_long_male_wtdgb2_%j.out 
+#SBATCH -t 9-0:00:00 # time requested
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=48
+#SBATCH --mem=160GB
+
+
+#cd /project/stuckert/users/Stuckert/
+mkdir Lu_long_male
+#cd  Lu_long_male
+DIR=$(pwd)
+OUT="Lu_long_male_wtdbg2"
+DATADIR="/project/stuckert/users/Stuckert/raw_data/psychodids/HiFi"
+READ1=${DATADIR}/Lutzomyia_longipalpis_male_1_m64335e_221208_215008.hifi_reads.fastq.gz
+READ2=${DATADIR}/Lutzomyia_longipalpis_male_2_m64019_230110_204429.hifi_reads.fasta.gz
+
+HiC1=/project/stuckert/users/Stuckert/psychodids/HiC_data/Longipalpis_Male_R1.fastq.gz
+HiC2=/project/stuckert/users/Stuckert/psychodids/HiC_data/Longipalpis_Male_R2.fastq.gz
+PDUPS=/project/stuckert/software/purge_dups
+
+. /project/stuckert/software/anaconda3/etc/profile.d/conda.sh
+
+# # # assemble
+wtdbg2 -x rs -g 150m -X 75 -S 2 -t 48 -i $READ1 -i $READ2 -fo $OUT #  # -L 2500 if needed
+# # consensus
+wtpoa-cns -t 48 -i $OUT.ctg.lay.gz -fo $OUT.ctg.fa
+
+# assemblathon_stats $OUT.ctg.fa
+
+module purge
+
+ml BWA/0.7.17-GCC-10.2.0 
+source activate juicer-1.8.9
+# install 3ddna and juicer
+conda activate base # for lastz
+JUICER=$(which juicer.sh | sed "s/\/scripts\/juicer.sh//g")
+
+
+
+genome="${DIR}/Lu_long_male/$OUT.ctg.fa"
+gname=$(basename $genome)
+gbase=$(basename $genome | sed "s/.fasta//g" | sed "s/.fa//g")
+
+#OUT=Lu_long_male_HiC
+cd  Lu_long_male
+DIR=$(pwd)
+mkdir ${DIR}/juicer
+mkdir ${DIR}/juicer/${OUT}
+mkdir ${DIR}/juicer/references/
+mkdir ${DIR}/juicer/fastq
+cd ${DIR}/juicer/fastq
+
+# create symlinks to Hi-C data:
+ln -s $HiC1 ${DIR}/juicer/fastq/
+ln -s $HiC2 ${DIR}/juicer/fastq/
+
+# create symlink to genome:
+cp $genome ${DIR}/juicer/references/
+
+cd ${DIR}/juicer/references
+bwa index $gname
+
+
+# # generate sites:
+cd ${DIR}/juicer/references/
+
+generate_site_positions.py Arima $gbase $gname 
+
+
+awk 'BEGIN{OFS="\t"}{print $1, $NF}' ${gbase}_Arima.txt > ${gbase}.chrom.sizes
+
+cd ${DIR}/juicer/
+
+# #copy sites info here (shouldve just made it in this folder)
+#cp ${DIR}/juicer/references/${gbase}_Arima.txt .
+#cp ${DIR}/juicer/references/${gbase}.chrom.sizes .
+
+# # symlink everything into the dang juicer file setup which is annoying but whatever.
+mkdir ${JUICER}/references
+mkdir ${JUICER}/restriction_sites/
+ln -s ${DIR}/juicer/references/* ${JUICER}/references
+#ln -s ${JUICER}/restriction_sites/
+
+
+juicer.sh \
+-g $gbase \
+-d ${DIR}/juicer \
+-D /project/stuckert/software/juicer-1.6/SLURM \
+-a ${DIR}/juicer/references/$gbase \
+-p ${DIR}/juicer/references/${gbase}.chrom.sizes \
+-y ${DIR}/juicer/references//${gbase}_Arima.txt \
+-z ${DIR}/juicer/references/$gname \
+-t 48 \
+-s Arima 
+
+
+mkdir ${DIR}/juicer/3dDNA
+cd ${DIR}/juicer/3dDNA
+
+
+run-asm-pipeline.sh ${DIR}/juicer/references/$gname ${DIR}/juicer/aligned/merged_nodups.txt
