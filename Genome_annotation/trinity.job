@@ -1,0 +1,37 @@
+#!/bin/bash
+#SBATCH -p general
+#sbatch -J genotype
+#SBATCH --cpus-per-task=48
+#SBATCH -t 14-0
+#SBATCH --mem=160g
+#SBATCH -o trinity_%j.out
+
+# load conda source script!
+. /project/stuckert/software/anaconda3/etc/profile.d/conda.sh
+conda activate trinity
+
+cd /project/stuckert/users/Stuckert/psychodids/RNA_data
+
+zcat *R1_001.fastq.gz > Lutozmyia_longipalpis_female_RNA.R1.fq
+zcat *R2_001.fastq.gz > Lutozmyia_longipalpis_female_RNA.R2.fq
+
+######## add in trimming and correcting here!
+trimmomatic PE -threads 48 -baseout Lutozmyia_longipalpis_female_RNA.trimmed \
+Lutozmyia_longipalpis_female_RNA.R1.fq Lutozmyia_longipalpis_female_RNA.R2.fq \
+LEADING:3 TRAILING:3 ILLUMINACLIP:barcodes.fa:2:30:10 MINLEN:25
+# #
+cat Lutozmyia_longipalpis_female_RNA.trimmed_1P Lutozmyia_longipalpis_female_RNA.trimmed_1U > Lutozmyia_longipalpis_female_RNA.trimmed_R1.fq
+cat Lutozmyia_longipalpis_female_RNA.trimmed_2P Lutozmyia_longipalpis_female_RNA.trimmed_2U > Lutozmyia_longipalpis_female_RNA.trimmed_R2.fq
+# #
+run_rcorrector.pl -t 48 -k 31 -1 Lutozmyia_longipalpis_female_RNA.trimmed_1P -2 Lutozmyia_longipalpis_female_RNA.trimmed_2P -od rcorr
+
+cd ..
+mkdir transcriptome
+cd transcriptome
+
+Trinity --seqType fq \
+--left /project/stuckert/users/Stuckert/psychodids/RNA_data/Lutozmyia_longipalpis_female_RNA.trimmed_R1.fq \
+--right /project/stuckert/users/Stuckert/psychodids/RNA_data/Lutozmyia_longipalpis_female_RNA.trimmed_R2.fq \
+--CPU 48 --max_memory 150G \
+--output Lu_long_female_trinity_trimmed
+
