@@ -1,21 +1,28 @@
 #!/bin/bash  iqtree.sh
-# USAGE: sh iqtree.sh -v ${SCR}/longipalpis_ms/pixy_allsites_filtered/lutzo_all_sites.filtered.vcf.gz
-while getopts v: option
+# USAGE: sh iqtree.sh -v /work/users/a/s/astuck/longipalpis_ms/map2male/pixy_allsites_filtered_biallelic/lutzo_all_sites.filtered.vcf.gz -g /nas/longleaf/home/astuck/longipalpis_ms/Lutzomyia_longipalpis_male_1.0.fa
+while getopts v:g: option
 do
 case "${option}"
 in
 v) VCF=${OPTARG};;
+g) GENOME=${OPTARG};;
 esac
 done
 
 ## $1 == vcf with called/filtered genotypes
-VCF="${SCR}//longipalpis_ms/pixy_allsites_filtered/lutzo_all_sites.filtered.vcf.gz"
+#VCF="${SCR}//longipalpis_ms/pixy_allsites_filtered/lutzo_all_sites.filtered.vcf.gz"
 
 mkdir iqtree 
 cd iqtree 
 
-chr=(HiC_scaffold_1 HiC_scaffold_2 HiC_scaffold_3 HiC_scaffold_4)
-lengths=(49693208 37555792 29959561 23723792)
+# extract lengths from chromosomes
+cat $GENOME | awk '$0 ~ ">" {if (NR > 1) {print c;} c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > $GENOME.lengths
+
+#chr=$(awk '{print $1}' $GENOME.lengths | head -n4)
+#lengths=$(awk '{print $2}' $GENOME.lengths | head -n4) # for some reason the operand is not working this way, so for now use just the 
+chr=(chr_1 chr_2 chr_3 chr_4)
+lengths=(49086602 36859591 29392114 22566980)
+
 wnd=100000
 for j in {0..4}; do
         c=${chr[${j}]}
@@ -33,15 +40,15 @@ cat << "EOF" > Tree_${c}_${i}.job
 #sbatch -J Tree
 #SBATCH --cpus-per-task=4
 #SBATCH -t 5:00:00 
-#SBATCH --mem=4g
+#SBATCH --mem=8g
 #SBATCH -o trees_%j.out
 
 module purge
 . ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
 conda activate base 
-ml samtools/1.15 iqtree/1.6.12
+ml samtools iqtree
 
-cd ${SCR}/longipalpis_ms/
+cd ${WORK}/longipalpis_ms/map2male
 mkdir iqtree 
 cd iqtree
 
