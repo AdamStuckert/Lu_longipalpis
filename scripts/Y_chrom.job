@@ -1,0 +1,59 @@
+#!/bin/bash
+#SBATCH -p general
+#sbatch -J sry
+#SBATCH --cpus-per-task=24
+#SBATCH -t 4-0
+#SBATCH --mem=100g
+#####SBATCH -n 1
+#SBATCH -o sry_%j.out
+
+module purge
+. ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
+conda activate sry 
+cd /work/users/a/s/astuck
+
+# extract female Illumina reads
+> female.reads.txt
+while read line
+do 
+out=$(ls "$line"* | grep -v "L002")
+out2=$(echo $out | sed "s/ /,/")
+#printf "%s+" "$out2"
+echo $out2
+done < fems.uniq.txt >> female.reads.txt
+tr '\n' '+' < female.reads.txt > tmp
+mv tmp female.reads.txt
+
+# extract male Illumina reads
+> male.reads.txt
+while read line
+do 
+out=$(ls "$line"* | grep -v "L002")
+out2=$(echo $out | sed "s/ /,/")
+#printf "%s+" "$out2"
+echo $out2
+done < males.uniq.txt >> male.reads.txt
+tr '\n' '+' < male.reads.txt > tmp
+mv tmp male.reads.txt
+
+# Run SRY to get kmers only in males
+SRY_k -m $(cat male.reads.txt) -f $(cat female.reads.txt) -p 24 
+
+##### HIFI
+
+
+
+## assembly Y chrom
+wtdbg2 -x rs -g 150m -X 75 -S 2 -t 48 -i output/candidate_target.fa  -fo male_y #  # -L 2500 if needed
+# # consensus
+wtpoa-cns -t 48 -i male_y.ctg.lay.gz -fo male_y.ctg.fa
+
+##### scaffold Y
+# extract only X:
+grep -A1 "chr_1" /nas/longleaf/home/astuck/longipalpis_ms/Lutzomyia_longipalpis_female_1.0.correctedheaders.fa > male.x.fa
+ragtag.py scaffold male.x.fa male_y.ctg.fa
+
+# align x and y
+minimap2 -cx asm5 ../male.x.fa ragtag.scaffold.fasta > scaffolded_y2x.paf
+
+
