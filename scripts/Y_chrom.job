@@ -40,8 +40,7 @@ mv tmp male.reads.txt
 SRY_k -m $(cat male.reads.txt) -f $(cat female.reads.txt) -p 24 
 
 # use output kmers to map to HiFi reads from males only
-SRY_pb2ont -i SRY_kmer.txt -l /project/stuckert/users/Stuckert/raw_data/psychodids/HiFi/Lutzomyia_longipalpis_male_1_m64335e_221208_215008.hifi_reads.fastq.gz,/project/stuckert/users/Stuckert/raw_data/psychodids/HiFi/Lutzomyia_longipalpis_male_2_m64019_230110_204429.hifi_reads.fasta.gz -g 20 -p 48
-
+SRY_hifi -i ../SRY_kmer.txt -l /project/stuckert/users/Stuckert/raw_data/psychodids/HiFi/Lutzomyia_longipalpis_male_1_m64335e_221208_215008.hifi_reads.fastq.gz,/project/stuckert/users/Stuckert/raw_data/psychodids/HiFi/Lutzomyia_longipalpis_male_2_m64019_230110_204429.hifi_reads.fasta.gz -g 20 -p 48
 
 ## assembly Y chrom
 wtdbg2 -x rs -g 150m -X 75 -S 2 -t 48 -i output/candidate_target.fa  -fo male_y #  # -L 2500 if needed
@@ -54,6 +53,6 @@ grep -A1 "chr_1" /nas/longleaf/home/astuck/longipalpis_ms/Lutzomyia_longipalpis_
 ragtag.py scaffold male.x.fa male_y.ctg.fa
 
 # align x and y
-minimap2 -cx asm5 ../male.x.fa ragtag.scaffold.fasta > scaffolded_y2x.paf
+minimap2 -cx asm5 x.fa ragtag_output/ragtag.scaffold.fasta > scaffolded_y2x.paf
 
 
