@@ -39,8 +39,8 @@ mv tmp male.reads.txt
 # Run SRY to get kmers only in males
 SRY_k -m $(cat male.reads.txt) -f $(cat female.reads.txt) -p 24 
 
-##### HIFI
-
+# use output kmers to map to HiFi reads from males only
+SRY_pb2ont -i SRY_kmer.txt -l /project/stuckert/users/Stuckert/raw_data/psychodids/HiFi/Lutzomyia_longipalpis_male_1_m64335e_221208_215008.hifi_reads.fastq.gz,/project/stuckert/users/Stuckert/raw_data/psychodids/HiFi/Lutzomyia_longipalpis_male_2_m64019_230110_204429.hifi_reads.fasta.gz -g 20 -p 48
 
 
 ## assembly Y chrom
