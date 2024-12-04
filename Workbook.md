@@ -15,3 +15,9 @@ This figure combines results from Principle Components Analyses (PCA) with that 
 We ran Pixy to calculate both Fst and Pi. Input data was a filtered, vcf with both invariant and variant sites. I calculated Fst between males and females, and then calculated Pi for both males and females indpendently. This analysis was run with the script **ADD SCRIPT**.
 
 Finally, the data from PCAngsd and Pixy are read into R and used to make [Figure 1 for the manuscript using this R script](https://github.com/AdamStuckert/Lu_longipalpis/blob/main/Figures/Fig1_PCA_Manhattans.Rmd).
+
+
+### Phylogenetic analyses
+
+1. Ran a full tree approach across the continent with `iqtree.sh`. 
+2. Extracted BUSCO genes and got their sequences.
