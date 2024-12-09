@@ -19,5 +19,5 @@ Finally, the data from PCAngsd and Pixy are read into R and used to make [Figure
 
 ### Phylogenetic analyses
 
-1. Ran a full tree approach across the continent with `iqtree.sh`. 
+1. Ran a full tree approach across the continent with `iqtree.sh` followed by `mergetrees.continent.job`. 
 2. Extracted BUSCO genes and got their sequences.
