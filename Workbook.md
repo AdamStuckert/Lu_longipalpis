@@ -19,5 +19,8 @@ Finally, the data from PCAngsd and Pixy are read into R and used to make [Figure
 
 ### Phylogenetic analyses
 
-1. Ran a full tree approach across the continent with `iqtree.sh` followed by `mergetrees.continent.job`. 
-2. Extracted BUSCO genes and got their sequences.
+1. Ran a full tree approach across the continent with `iqtree.sh` followed by `mergetrees.continent.job`. Note that this was *only with divergent (biallelic sites) and set with `+ASC`*.
+2. Extracted BUSCO genes and got their sequences. This was the *full gene sequence and was not only biallelic sites.*
+3. Run concordance: `iqtree2 -t concat.treefile --gcf loci.treefile --prefix concord`
+4. Profit??
+
