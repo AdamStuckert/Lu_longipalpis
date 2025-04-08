@@ -1,0 +1,446 @@
+---
+---
+title: "Lu. longipalpis Tree"
+author: "Adam Stuckert"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggtree)
+library(ggplot2)
+library(cowplot)
+library(phytools)
+library(tidyverse)
+library(phylotools)
+library(treeio)
+library(gridExtra)
+library(RSQLite)
+library(rnaturalearth)
+library(ggspatial)
+getwd()
+
+# define color scheme
+pops <- c("Colombia", "Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S" )
+pop_cols <- c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000")
+
+pops_split <- c("Colombia", "Jacobina S1", "Jacobina S2", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S" )
+pop_split_cols <- c("#0000AA", 'grey', 'tan4', "#00DCDC", "#00AB00", "#FF8000", "#AA0000")
+
+```
+
+## Phylogeny of the *Lu. longipalpis* assemblies
+
+
+```{R lutzo trees}
+lutzo <- read.table("SamplesSex.tsv", header = TRUE, sep = "\t")
+#depth <- read.table("data/seqdepth.goods.tsv", header = TRUE, sep = "\t")
+##depth <- depth[,c(1,2)]
+#colnames(depth)[2] <- "Depth"
+# merge em
+#lutzo <- left_join(lutzo, depth)
+colnames(lutzo)[1] <- "label"
+
+genome <- read.tree("data/whole_genome_output_consensus.newick")
+chr1 <-  read.tree("data/chr1_output_consensus.newick")
+
+
+# edit tip labels
+genome <- as_tibble(genome)
+genome <- left_join(genome, lutzo, by = "label")
+genome <-unique(genome)
+genome <- as.treedata(genome)
+
+  
+chr1 <- as_tibble(chr1)
+chr1 <- left_join(chr1, lutzo, by = "label")
+chr1 <-unique(chr1)
+chr1 <- as.treedata(chr1)
+
+genome_tree_swapID <- ggtree(genome, aes(color=Sex), branch.length="none")  + ggtitle("Whole genome")  + geom_tippoint() + scale_color_manual(values = c("hotpink1", "dodgerblue"), breaks=c("Female", "Male"))
+genome_tree_swapID
+
+chr1_tree_swapID <- ggtree(chr1, aes(color=Sex), branch.length="none")  + ggtitle("Chr1")  + geom_tippoint() + scale_color_manual(values = c("hotpink1", "dodgerblue"), breaks=c("Female", "Male"))
+chr1_tree_swapID
+
+
+grid.arrange(genome_tree_swapID, chr1_tree_swapID, nrow = 2, ncol = 1)
+
+plot <- arrangeGrob(genome_tree_swapID, chr1_tree_swapID,  nrow = 2)
+ggsave("figures/Tree_WholeGenomeVSChr1_swapID.png", plot, width = 9.5, height = 12.5)
+```
+
+Add autosomes only.
+
+```{R autosomes}
+autos <-  read.tree("data/autosome_output_consensus.newick")
+
+# edit tip labels
+autos <- as_tibble(autos)
+autos <- left_join(autos, lutzo, by = "label")
+autos <-unique(autos)
+autos <- as.treedata(autos)
+
+
+autos_tree_swapID <- ggtree(autos, aes(color=Sex), branch.length="none")  + ggtitle("Autosomes") + geom_tippoint() + scale_color_manual(values = c("hotpink1", "dodgerblue"), breaks=c("Female", "Male"))
+autos_tree_swapID
+
+
+grid.arrange(genome_tree_swapID, chr1_tree_swapID, autos_tree_swapID, nrow = 3, ncol = 1)
+
+plot <- arrangeGrob(genome_tree_swapID, chr1_tree_swapID,  autos_tree_swapID, nrow = 3)
+ggsave("figures/Fig2B_tree.png", plot, width = 9.5, height = 20)
+
+
+```
+
+
+
+```{R continent wide tree}
+tree_samples <- read.csv("data/continent_samples.csv", header = TRUE)
+
+
+cont <- read.newick("data/continent_whole_genome_output_consensus.newick")
+colnames(tree_samples)[1] <- "label"
+
+# edit tip labels
+cont <- as_tibble(cont)
+cont <- left_join(cont, tree_samples, by = "label")
+cont <-unique(cont)
+cont <- as.treedata(cont)
+
+
+
+sex_tree <- ggtree(cont, aes(color=Sex), branch.length="none")   + geom_tippoint() + scale_color_manual(values = c("hotpink1", "dodgerblue"), breaks=c("Female", "Male"))
+sex_tree
+
+site_tree <- ggtree(cont, aes(color=Site), branch.length="none", color="black")   + geom_tippoint(size = 2)  + scale_color_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) + scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) +
+ theme(text=element_text(size=23)) + labs(title = "A)")
+site_tree
+
+
+site_tree2 <- ggtree(cont, aes(color=Site), branch.length="none", color="black", layout = "circular")   + geom_tippoint(size = 3)  + scale_color_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) + scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) +
+  theme(
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16)) + labs(title = "A)")
+site_tree2
+ggsave("figures/test_tree.png",  width = 9.5, height = 9.5)
+```
+Reroot tree to address polytomy in Colombian sandflies and revise color scheme.
+
+
+```{R reroot tree}
+marajos <- tree_samples %>% filter(Site == "Marajo")
+rerooted_cont <- root(cont, outgroup = marajos$label[1]) 
+
+site_tree3 <- ggtree(rerooted_cont, aes(shape=Site), branch.length="none", color="black", layout = "circular")   + geom_tippoint(size = 3)  + scale_color_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) + scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) +
+  theme(
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16))
+site_tree3
+
+
+site_tree2a <- ggtree(rerooted_cont, aes(color=Site), branch.length="none", color="black", layout = "circular")   + geom_tippoint(size = 3)  + scale_color_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) + scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) +
+  theme(
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16))
+site_tree2a
+
+
+
+## Final tree for manuscript:
+### Fix colors
+# rename Colombia
+rerooted_cont@data$Site <- gsub("Ricaurte", "Colombia", rerooted_cont@data$Site)
+# reorder sites
+rerooted_cont@data$Site <- factor(rerooted_cont@data$Site, levels = c("Colombia", "Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S"))
+site_tree <- ggtree(rerooted_cont, aes(color=Site), branch.length="none", color="black")   + geom_tippoint(size = 2)   + scale_color_manual(values = c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000")) +
+ theme(text=element_text(size=28)) +
+  guides(color = guide_legend(override.aes = list(size = 5))) + labs(title = "A)")
+site_tree
+
+
+```
+
+## Sampling sites
+
+```{r sampling sites}
+library(ggrepel)
+
+sites <- read.csv("data/sampling_sites.csv")
+sites2 <- sites
+sites2$Site <- gsub(", Colombia","", sites2$Site)
+sites2$Site <- gsub(", Brazil","", sites2$Site)
+### Fix colors
+# rename Colombia
+sites2$Site <- gsub("Ricaurte", "Colombia", sites2$Site)
+# reorder sites
+sites2$Site <- factor(sites2$Site, levels = c("Colombia", "Jacobina", "Lapinha Cave", "Marajo Island", "Sobral"))
+# get world data
+world <- ne_countries(returnclass = "sf")
+
+sa_map <- ggplot(data = world) +
+    geom_sf(fill = "antiquewhite") + theme(panel.background = element_rect(fill = "aliceblue")) +
+    annotation_scale(location = "bl", width_hint = 0.25) +
+    annotation_north_arrow(location = "bl", which_north = "true", 
+ #        pad_y = unit(0.2, "in"),
+        style = north_arrow_fancy_orienteering) + 
+    coord_sf(xlim = c(-82.5, -30), ylim = c(-27, 16.5)) + 
+  theme(axis.title.x=element_blank(),axis.title.y=element_blank(), legend.position="none") + labs(title = "B)") + theme(text=element_text(size=16), plot.title = element_text(size=32)) 
+
+
+
+sa_map2 <- sa_map + geom_point(data = sites2, aes(x = Lat, y = Long, color = Site), size = 3) + scale_color_manual(values = c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000")) +
+      geom_label_repel(data = sites2, 
+                     aes(x = Lat, y = Long, label = Site),
+                     size = 4) 
+
+sa_map2
+
+ggsave(filename = "figures/SamplingSites.png", 
+       height = 10,
+       width = 8,
+       units = "in",
+       dpi = 600)
+```
+
+
+## PCA across South America
+
+```{r PCA across South America}
+# read in data from pcangsd
+C <- as.matrix(read.table("data/new_pcangsd/continent_rerun.cov"))
+
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat <- e$vectors[,1:2]
+colnames(pcadat) <- c("PC1","PC2")
+
+# merge pc1/pc2 with metadata, but use corrected metadata:
+# samples
+lutzo <- read.table("data/new_pcangsd/continent_rerun_longipalpis_samples.txt",  sep = "\t")
+#lutzo <- read.table("data/ContinentPCAsamples.txt")
+colnames(lutzo) <- "Run"
+lutzo$Run <- gsub(".dedupd.bam", "", lutzo$Run)
+all_lutzo_md <- read.table("data/All_longipalpis_samples.txt", header = TRUE, sep = "\t")
+lutzo <- left_join(lutzo, all_lutzo_md,by="Run")
+
+# drop country name for readability
+lutzo$Site <- gsub(", Colombia","", lutzo$Site)
+lutzo$Site <- gsub(", Brazil","", lutzo$Site)
+# rename Colombia
+lutzo$Site <- gsub("Ricaurte", "Colombia", lutzo$Site)
+pcadat <- cbind(pcadat, lutzo)
+
+### Fix colors
+
+# reorder sites
+pcadat$Site <- factor(pcadat$Site, levels = c("Colombia", "Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S"))
+
+Cont.pca <-   ggplot(pcadat, aes(x = PC1, y = PC2, color = Site)) +
+    geom_point(size = 6, show.legend = TRUE, alpha = 0.3) +  # , shape = "\u269C"
+      xlab(paste0("PC1 (", pc1var, "%)")) +
+    ylab(paste0("PC2 (", pc2var, "%)")) +
+    # coord_fixed() + 
+    theme_bw() + theme(text=element_text(size=23), legend.position="none") + scale_color_manual(values = c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000"))  + labs(title = "C)") 
+# ,legend.position="none"
+Cont.pca
+# save
+ggsave("figures/PCA_Continent.png", width = 12, height = 9, dpi = 600)
+
+```
+
+## Continent structure plot
+
+```{r Continent structure}
+# import best K information
+admix <- as.matrix(read.table("data/new_pcangsd/continent_rerun.admix.10.Q"))
+colnames(admix) <- c("genotype1", "genotype2", "genotype3", "genotype4", "genotype5", "genotype6", "genotype7", "genotype8", "genotype9", "genotype10")
+
+
+admix <- cbind(admix, lutzo)
+admix$Site <- as.factor(admix$Site)
+
+# rename Colombia
+admix$Site <- gsub("Ricaurte", "Colombia", admix$Site)
+# reorder sites
+admix$Site <- factor(admix$Site, levels = c("Colombia", "Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S"))
+# now I need to mutate the data for plotting
+admix2 <- admix %>% pivot_longer(cols = starts_with("geno"), names_to="genotype", values_to="probability")
+
+# reorder....
+#admix2$Site <- relevel(admix2$Site, "Ricaurte")
+## plot
+str_plot <-
+  ggplot(admix2, aes(factor(Run), probability, fill = factor(genotype))) +
+  geom_col(color = "gray", size = 0.1) +
+  facet_grid(~Site, switch = "x", scales = "free", space = "free") +
+  theme_minimal() + labs(x = "Individuals", y = "Genotype probability") +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_x_discrete(expand = expand_scale(add = 1)) +
+  theme(
+    panel.spacing.x = unit(0.1, "lines"),
+    axis.text.x = element_blank(),
+    panel.grid = element_blank()
+  ) + theme(legend.position = "none") + theme(strip.text.x = element_text(angle = 45)) + theme(text=element_text(size=23))   + labs(title = "D)")
+#+ scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte"))
+str_plot
+
+ggsave("figures/BestFitK.png", width = 9, height = 4.5, dpi = 450)
+```
+
+
+## Continent merged tree, PCA, and structure plot AND A MAP
+```{R full merged image for Figure 3}
+layout <- rbind(c(1,1,2,3),
+             c(1,1,4,4))
+
+test2 <- grid.arrange( site_tree, sa_map2, Cont.pca, str_plot, layout_matrix = layout)
+test2
+ggsave("figures/Fig3_PopGen.png", test2, width = 17.5, height = 8.5, dpi = 600)
+
+
+```
+
+
+## scree plot
+
+```{r screeeeeee}
+
+#C <- as.matrix(read.table("data/female.assembly.Continent.cov"))
+# C <- as.matrix(read.table("data/male.assembly.filtered_nosim.cov")) this is only colombia
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+scree <- (eigvals/totvar)*100
+scree <- scree[1:15]
+pcs <- paste0("PC ",1:15)
+scree <- as.data.frame(cbind(pcs, scree))
+scree$scree <- as.numeric(scree$scree)
+scree$value <- round(scree$scree, 1)
+# plot
+scree_plot <- ggplot(scree, aes(x=fct_inorder(pcs),y=scree, group =1)) + geom_point() + geom_line() +
+    labs(y = "Proportion of variation explained", x = "Principal component") + 
+      theme_bw() + theme(text=element_text(size=12)) 
+
+scree_plot
+ggsave("figures/S3_scree.png", width = 7.5, height = 3.5, dpi = 300)
+
+
+```
+
+```{R continent chr 1, eval = F}
+
+tree_samples <- read.csv("data/continent_samples.csv", header = TRUE)
+
+
+cont <- read.newick("data/chr1_output_consensus_continent")
+colnames(tree_samples)[1] <- "label"
+
+# edit tip labels
+cont <- as_tibble(cont)
+cont <- left_join(cont, tree_samples, by = "label")
+cont <-unique(cont)
+cont <- as.treedata(cont)
+
+
+
+sex_tree <- ggtree(cont, aes(color=Sex), branch.length="none")   + geom_tippoint() + scale_color_manual(values = c("hotpink1", "dodgerblue"), breaks=c("Female", "Male")) +
+  geom_tiplab()
+sex_tree
+
+site_tree <- ggtree(cont, aes(color=Site), branch.length="none", color="black")   + geom_tippoint(size = 2)  + scale_color_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) + scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) +
+ theme(text=element_text(size=23))
+site_tree
+ggsave("figures/test_tree.png",  width = 9.5, height = 9.5)
+
+
+site_tree3 <- ggtree(cont, aes(color=Site, group = Sex), branch.length="none", color="black", layout = "circular")   + geom_tippoint(size = 3, shape = group)  + scale_color_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) + scale_fill_viridis_d(breaks=c("Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S", "Ricaurte")) +
+  theme(
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16))
+site_tree3
+```
+
+
+
+PC2 and PC3:
+
+```{R pc2/pc3}
+
+# read in data from pcangsd
+#C <- as.matrix(read.table("data/female.assembly.Continent.cov"))
+
+
+# calculate variance for PC2 and PC3
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+pc3var <- round((eigvals[3]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat2 <- e$vectors[,2:3]
+colnames(pcadat2) <- c("PC2","PC3")
+
+# merge pc2/pc3 with metadata, but use corrected metadata:
+# samples
+#lutzo2 <- read.table("data/female.assembly.Continent.samples.txt",  sep = "\t")
+#lutzo2 <- read.table("data/ContinentPCAsamples.txt")
+#colnames(lutzo2) <- "Run"
+#lutzo$Run <- gsub(".dedupd.bam", "", lutzo$Run)
+#all_lutzo_md2 <- read.table("data/All_longipalpis_samples.txt", header = TRUE, sep = "\t")
+#lutzo2 <- left_join(lutzo2, all_lutzo_md2, by="Run")
+
+# drop country name for readability
+#lutzo2$Site <- gsub(", Colombia","", lutzo2$Site)
+#lutzo2$Site <- gsub(", Brazil","", lutzo2$Site)
+
+pcadat2 <- cbind(pcadat2, lutzo)
+
+Cont.pca2 <-   ggplot(pcadat2, aes(x = PC2, y = PC3, color = Site)) +
+    geom_point(size = 6, show.legend = TRUE, alpha = 0.3) +  # , shape = "\u269C"
+      xlab(paste0("PC2 (", pc2var, "%)")) +
+    ylab(paste0("PC3 (", pc3var, "%)")) +
+    # coord_fixed() + 
+    theme_bw() + theme(text=element_text(size=23)) + scale_color_manual(values = c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000"))  + labs(title = "PC2/PC3") 
+Cont.pca2
+ggsave("figures/PC2_PC3.png", width = 12, height = 9, dpi = 600)
+```
+
+
+## admix violin plot
+
+```{r admix violin plot}
+admix3 <- admix2
+admix3$genotype <- gsub("genotype","",admix3$genotype)
+admix3$genotype <- factor(admix3$genotype, levels = seq(1,10))
+ggplot(admix3, aes(x = genotype, y = probability)) + geom_point() +geom_violin() + facet_grid(~ Site) +
+  theme_bw() #+ theme(axis.text.x=element_blank()) 
+ggsave("figures/FigS8_admixplot.png", width = 8.5, height = 4, dpi = 600)
+
+# Col genotypes?
+geno8 <- admix2 %>% filter(genotype == "genotype8")
+# how many have geno8 (Col male geno) at all?
+geno8 %>% filter(Site != "Colombia") %>% filter(probability > 0.01)
+
+
+geno4 <- admix2 %>% filter(genotype == "genotype4")
+geno4 %>% filter(Site != "Colombia") %>% filter(probability > 0.01)
+
+```
+
+
+

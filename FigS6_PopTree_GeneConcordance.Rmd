@@ -1,0 +1,24 @@
+---
+title: "PopTree"
+output: html_document
+date: "2025-04-03"
+---
+
+```{r setup, include=FALSE}
+library(ggtree)
+library(ggplot2)
+library(cowplot)
+library(phytools)
+library(tidyverse)
+library(phylotools)
+library(treeio)
+```
+
+```{r make the tree}
+
+pop <- "(Colombia:5.2720864162,(Laphina:3.3855239074,(Sobral_1S:0.3901314716,(Jacobina:0.1944244991,(Sobral_2S:1.0031563325,Marajo:0.8290500019)1/67.8:0.3680517221)1/31.9:0.2420962401)1/34:0.1706194467)100:0.0000000000):0.0000000000;"
+
+pop <- read.tree(text=pop)
+ggtree(pop, branch.length="none")  + ggtitle("Population tree")  + geom_tippoint() + geom_nodelab(hjust=1.2, vjust = -0.8) + geom_tiplab() + coord_cartesian(clip="off") + xlim_tree(5.5)
+ggsave("figures/FigSX_PopulationTree.png",  width = 6, height = 4)
+```

@@ -1,0 +1,627 @@
+---
+title: "SexChromosomeDegenerization"
+output: html_document
+date: "2024-03-13"
+---
+
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(data.table)
+library(tidyverse)
+library(gridExtra)
+library(ggrepel)
+library(ggridges)
+```
+
+
+## Script purpose: examine sex chromosome versus other chromosomes in males vs females
+
+
+## TE analyses
+
+This is looking at chromosome 1 to start with. Are there differences between male and female assembly in TE content? And is this driving the Fst/Pi patterns we see?
+
+```{R chr 1 TEs}
+#chr lengths
+fem_chrs <- read.table("intermediate_data/female_chrs.tsv", sep = "\t", header = TRUE)
+male_chrs <- read.table("intermediate_data/male_chrs.tsv", sep = "\t", header = TRUE)
+# lady flies
+fem <- read.table("data/female.summary.chr1.tsv", sep = "\t", header = TRUE)
+fem$sex <- "Female"
+male <- read.table("data/male.summary.chr1.tsv", sep = "\t", header = TRUE)
+male$sex <- "Male"
+
+# merge
+TEs <- rbind(fem, male)
+
+# remove everything
+TEs_fams <- TEs %>% filter(Family != "EVERYTHING_TE")
+
+# barplots
+require(scales)
+TE_bars <- ggplot(TEs_fams, aes(x=reorder(Family, -Total_Bp), y=Total_Bp))+
+  geom_bar(stat='identity')+
+  facet_wrap(~sex) +
+  coord_flip() + 
+  ylab("Total base pairs") +
+  xlab("TE family") +
+  theme_bw() + scale_y_continuous(labels = comma, breaks = seq(0, 7500000, by = 1250000), limits =c(0,7500000)) # limits = c(0, 5000), breaks = c(0,1250,2500,3750,5000), 
+
+TE_bars
+
+# donut chart of total 
+hsize <- 3
+
+# add total length of chr 1:
+fem_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (fem_chrs$Contig_length[1] - sum(as.numeric(fem$Total_Bp))), 0, "female")
+fem <- rbind(fem, fem_len)
+
+male_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (male_chrs$Contig_length[1] - sum(as.numeric(male$Total_Bp))), 0, "male")
+male <- rbind(male, male_len)
+
+fem <- fem %>% 
+  mutate(x = hsize)
+
+# make numeric
+fem$Total_Bp <- as.numeric(fem$Total_Bp)
+# drop all TE row
+fem <- fem %>% filter(Family != "EVERYTHING_TE")
+# add percent
+fem$percent <- round(((fem$Total_Bp/fem_chrs$Contig_length[1])*100),2)
+
+
+fem_pie <- ggplot(fem, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Female")
+
+
+fem_pie
+
+male <- male %>% 
+  mutate(x = hsize)
+
+# make numeric
+male$Total_Bp <- as.numeric(male$Total_Bp)
+# drop all TE row
+male <- male %>% filter(Family != "EVERYTHING_TE")
+male$percent <- round(((male$Total_Bp/male_chrs$Contig_length[1])*100),2)
+
+
+male_pie <- ggplot(male, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Male")
+
+male_pie
+
+TEs_fams1 <- TEs_fams
+```
+
+Make a merged figure:
+
+```{r chr1 TE merged}
+grid.arrange(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+
+plot <- arrangeGrob(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+ggsave("figures/Chr1_TEs.png", plot, width = 9, height = 7, dpi = 600) #  width = 7.5, height = 12,
+
+```
+
+## CHR 2 TEs
+
+```{R chr 2 TEs}
+# lady flies
+fem <- read.table("data/female.summary.chr2.tsv", sep = "\t", header = TRUE)
+fem$sex <- "Female"
+male <- read.table("data/male.summary.chr2.tsv", sep = "\t", header = TRUE)
+male$sex <- "Male"
+
+# merge
+TEs <- rbind(fem, male)
+
+# remove everything
+TEs_fams <- TEs %>% filter(Family != "EVERYTHING_TE")
+
+# barplots
+require(scales)
+TE_bars <- ggplot(TEs_fams, aes(x=reorder(Family, -Total_Bp), y=Total_Bp))+
+  geom_bar(stat='identity')+
+  facet_wrap(~sex) +
+  coord_flip() + 
+  ylab("Total base pairs") +
+  xlab("TE family") +
+  theme_bw() + scale_y_continuous(labels = comma, breaks = seq(0, 5000000, by = 1250000), limits =c(0,5500000)) # limits = c(0, 5000), breaks = c(0,1250,2500,3750,5000), 
+
+TE_bars
+
+# donut chart of total 
+hsize <- 3
+
+# add total length of chr 1:
+fem_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (fem_chrs$Contig_length[2] - sum(as.numeric(fem$Total_Bp))), 0, "female")
+fem <- rbind(fem, fem_len)
+
+male_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (male_chrs$Contig_length[2] - sum(as.numeric(male$Total_Bp))), 0, "male")
+male <- rbind(male, male_len)
+
+fem <- fem %>% 
+  mutate(x = hsize)
+
+# make numeric
+fem$Total_Bp <- as.numeric(fem$Total_Bp)
+# drop all TE row
+fem <- fem %>% filter(Family != "EVERYTHING_TE")
+# add percent
+fem$percent <- round(((fem$Total_Bp/fem_chrs$Contig_length[2])*100),2)
+
+
+fem_pie <- ggplot(fem, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Female")
+
+
+fem_pie
+
+male <- male %>% 
+  mutate(x = hsize)
+
+# make numeric
+male$Total_Bp <- as.numeric(male$Total_Bp)
+# drop all TE row
+male <- male %>% filter(Family != "EVERYTHING_TE")
+male$percent <- round(((male$Total_Bp/male_chrs$Contig_length[2])*100),2)
+
+
+male_pie <- ggplot(male, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Male")
+
+male_pie
+
+## merge figures
+grid.arrange(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+
+plot <- arrangeGrob(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+ggsave("figures/Chr2_TEs.png", plot, width = 9, height = 7, dpi = 600) #  width = 7.5, height = 12,
+
+
+TEs_fams2 <- TEs_fams
+```
+
+## CHR 3 TEs
+
+```{R chr 3 TEs}
+# lady flies
+fem <- read.table("data/female.summary.chr3.tsv", sep = "\t", header = TRUE)
+fem$sex <- "Female"
+male <- read.table("data/male.summary.chr3.tsv", sep = "\t", header = TRUE)
+male$sex <- "Male"
+
+# merge
+TEs <- rbind(fem, male)
+
+# remove everything
+TEs_fams <- TEs %>% filter(Family != "EVERYTHING_TE")
+
+# barplots
+require(scales)
+TE_bars <- ggplot(TEs_fams, aes(x=reorder(Family, -Total_Bp), y=Total_Bp))+
+  geom_bar(stat='identity')+
+  facet_wrap(~sex) +
+  coord_flip() + 
+  ylab("Total base pairs") +
+  xlab("TE family") +
+  theme_bw() + scale_y_continuous(labels = comma, breaks = seq(0, 5000000, by = 1250000), limits =c(0,5500000)) # limits = c(0, 5000), breaks = c(0,1250,2500,3750,5000), 
+
+TE_bars
+
+# donut chart of total 
+hsize <- 3
+
+# add total length of chr 1:
+fem_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (fem_chrs$Contig_length[3] - sum(as.numeric(fem$Total_Bp))), 0, "female")
+fem <- rbind(fem, fem_len)
+
+male_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (male_chrs$Contig_length[3] - sum(as.numeric(male$Total_Bp))), 0, "male")
+male <- rbind(male, male_len)
+
+fem <- fem %>% 
+  mutate(x = hsize)
+
+# make numeric
+fem$Total_Bp <- as.numeric(fem$Total_Bp)
+
+# drop all TE row
+fem <- fem %>% filter(Family != "EVERYTHING_TE")
+# add percent
+fem$percent <- round(((fem$Total_Bp/fem_chrs$Contig_length[3])*100),2)
+
+
+fem_pie <- ggplot(fem, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Female")
+
+
+fem_pie
+
+male <- male %>% 
+  mutate(x = hsize)
+
+# make numeric
+male$Total_Bp <- as.numeric(male$Total_Bp)
+
+# drop all TE row
+male <- male %>% filter(Family != "EVERYTHING_TE")
+male$percent <- round(((male$Total_Bp/male_chrs$Contig_length[3])*100),2)
+
+
+male_pie <- ggplot(male, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Male")
+
+male_pie
+
+## merge figures
+grid.arrange(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+
+plot <- arrangeGrob(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+ggsave("figures/Chr3_TEs.png", plot, width = 9, height = 7, dpi = 600) #  width = 7.5, height = 12,
+
+
+TEs_fams3 <- TEs_fams
+
+```
+
+
+## CHR 4 TEs
+
+```{R chr 4 TEs}
+# lady flies
+fem <- read.table("data/female.summary.chr4.tsv", sep = "\t", header = TRUE)
+fem$sex <- "Female"
+male <- read.table("data/male.summary.chr4.tsv", sep = "\t", header = TRUE)
+male$sex <- "Male"
+
+# merge
+TEs <- rbind(fem, male)
+
+# remove everything
+TEs_fams <- TEs %>% filter(Family != "EVERYTHING_TE")
+
+# barplots
+require(scales)
+TE_bars <- ggplot(TEs_fams, aes(x=reorder(Family, -Total_Bp), y=Total_Bp))+
+  geom_bar(stat='identity')+
+  facet_wrap(~sex) +
+  coord_flip() + 
+  ylab("Total base pairs") +
+  xlab("TE family") +
+  theme_bw() + scale_y_continuous(labels = comma, breaks = seq(0, 5000000, by = 1250000), limits =c(0,5500000)) # limits = c(0, 5000), breaks = c(0,1250,2500,3750,5000), 
+
+TE_bars
+
+# donut chart of total 
+hsize <- 3
+
+# add total length of chr 1:
+fem_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (fem_chrs$Contig_length[4] - sum(as.numeric(fem$Total_Bp))), 0, "female")
+fem <- rbind(fem, fem_len)
+
+male_len <- c("Not_TE", "All_elements", "NA", "NA", 0, "NA", (male_chrs$Contig_length[4] - sum(as.numeric(male$Total_Bp))), 0, "male")
+male <- rbind(male, male_len)
+
+fem <- fem %>% 
+  mutate(x = hsize)
+
+# make numeric
+fem$Total_Bp <- as.numeric(fem$Total_Bp)
+# drop all TE row
+fem <- fem %>% filter(Family != "EVERYTHING_TE")
+# add percent
+fem$percent <- round(((fem$Total_Bp/fem_chrs$Contig_length[4])*100),2)
+
+
+fem_pie <- ggplot(fem, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Female")
+
+
+fem_pie
+
+male <- male %>% 
+  mutate(x = hsize)
+
+# make numeric
+male$Total_Bp <- as.numeric(male$Total_Bp)
+# drop all TE row
+male <- male %>% filter(Family != "EVERYTHING_TE")
+male$percent <- round(((male$Total_Bp/male_chrs$Contig_length[4])*100),2)
+
+
+male_pie <- ggplot(male, aes(x = hsize, y = percent, fill = reorder(Family, percent))) +
+  geom_col(color = "black") +
+  geom_label_repel(aes(label = paste0(percent, "%")),
+                   size = 4.5, nudge_x = 2, show.legend = FALSE) +
+  coord_polar(theta = "y") +
+ # scale_fill_brewer(palette = "viridis") +
+  xlim(c(0.2, hsize + 0.5)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.title=element_blank()) + 
+  ggtitle("Male")
+
+male_pie
+
+## merge figures
+grid.arrange(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+
+plot <- arrangeGrob(TE_bars, fem_pie, male_pie, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 1),
+                        c(2,3)))
+ggsave("figures/Chr4_TEs.png", plot, width = 9, height = 7, dpi = 600) #  width = 7.5, height = 12,
+
+TEs_fams4 <- TEs_fams
+```
+
+I'm not generally a fan of stacked barplots, but this feels like a good use of them!
+
+```{r stacked barplots}
+# merge dfs
+fem_chrs$sex <- "Female"
+male_chrs$sex <- "Male"
+
+all_chrs <- rbind(fem_chrs, male_chrs)
+all_chrs <- all_chrs[,c(1,2,5)]## need co
+colnames(all_chrs) <- c("chr", "chr_length", "sex")
+
+# add total TE content for each
+TEs_fams1$chr <- 1
+TEs_fams2$chr <- 2
+TEs_fams3$chr <- 3
+TEs_fams4$chr <- 4
+
+# merge
+all_TEs_fams <- rbind(TEs_fams1, TEs_fams2, TEs_fams3, TEs_fams4)
+
+#### tidy tidy tidy
+# get TE lengths by chromosome per sex
+test <- all_TEs_fams %>% group_by(chr, sex) %>% summarise(TE_BP = sum(Total_Bp))
+test <- data.frame(test)
+# add chr lengths by sex
+
+test2 <- left_join(test,all_chrs, by = c("chr","sex"))
+
+test2$DNA_BP <- test2$chr_length - test2$TE_BP
+
+# need to spread the data to plot
+test3 <- test2 %>% gather(type, "length", c(TE_BP,DNA_BP))
+test3$type <- gsub(pattern = "_BP", replacement = "", test3$type)
+
+## stacked barplot
+ggplot(test3, aes(fill=type, y=length, x=sex)) + 
+    geom_bar(position="stack", stat="identity") +
+  facet_wrap(~chr) + 
+  theme_bw() + 
+  ylab("Number of bases") + 
+  xlab("Sex") + 
+  theme(legend.title= element_blank()) +
+  scale_fill_manual(values = c("gray80", "black")) + theme(text=element_text(size=23))
+```
+
+
+TE density: Note this is only the total number of plotted repeats, and not the total content. 
+
+```{R te density plot}
+male_TEs <- read.table("data/male_TEpositions.txt",sep="\t",header=F)
+colnames(male_TEs) <- c("chr","pos")
+male_TEs$sex <- "male"
+
+female_TEs <- read.table("data/female_TEpositions.txt",sep="\t",header=F)
+colnames(female_TEs) <- c("chr","pos")
+female_TEs$sex <- "female"
+
+# merge
+TEs <- rbind(male_TEs, female_TEs)
+
+plottedTEs <- ggplot(TEs) + geom_density(aes(x=pos, color = sex, fill = sex),binwidth=1000000,alpha=.5) + facet_wrap(~chr,ncol=2) + xlab("Genomic position (bins 1 Mb)") + ylab("Number of repeats") + theme_bw()
+plottedTEs
+
+plottedTEs2 <- ggplot(TEs, aes(x=pos, y = chr, color = sex, fill = sex))  +  geom_density_ridges(bandwidth=1000000,alpha=.5) +
+  theme_ridges() +  xlab("Genomic position") + ylab("Number of repeats") + theme_bw() + ggtitle("B)")
+plottedTEs2
+```
+
+
+
+
+TE lengths by chr
+
+```{r lengths}
+
+# import data
+fem_reps <- fread("data/female_te_lengths.txt")
+m_reps <- fread("data/male_te_lengths.txt")
+# Rename columns
+colnames(fem_reps) <- c("chr", "repeat_begin", "repeat_end", "repeat_type")
+colnames(m_reps) <- c("chr", "repeat_begin", "repeat_end", "repeat_type")
+# add sex
+fem_reps$sex <- "female"
+m_reps$sex <- "male"
+
+#merge
+reps <- rbind(fem_reps, m_reps)
+# calculate length of repeat
+reps <- dplyr::mutate(reps, length = repeat_end - repeat_begin)
+
+# summariiiiiieeeees
+reps_sum <- reps %>% group_by(repeat_type, chr) %>% summarise(mean_length = mean(length), sd = sd(length), number_of_repeats = n(), minimum_length = min(length), maximum_length = max(length), total_bp = sum(length), Gbp = sum(length)/1000000000)
+
+# total genomic content in repeats here
+print(paste0("Total repeat content in the genome from these major families (in Gbp): ", sum(reps_sum$Gbp)))
+
+# save these summary data
+#write.csv(reps_sum, "results/RepeatSummaryStats.csv", row.names = FALSE)
+#write.csv(reps_sum, "results4supplemental/RepeatSummaryStats.csv", row.names = FALSE)
+
+# drop repeats with very little data (here, < 100Kbp )
+
+reps_sum2 <- reps_sum %>% filter(total_bp > 100000)
+
+
+# Plot just the summary data!
+  
+  
+
+sum_plot <- ggplot(reps_sum, aes(x = repeat_type, y = mean_length)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = mean_length - sd, ymax = mean_length + sd)) +
+  ylab("Length (bp)") +
+  xlab("Repeat type") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black"))
+sum_plot
+
+
+# Now pull out only repeats that are one of types with >100Mbp of repeats
+
+reps_subset <- reps %>% filter(repeat_type %in% reps_sum2$repeat_type)
+
+
+# violin plot of this...
+reps_plot <- ggplot(reps_subset, aes(x = repeat_type, y = length, fill = sex, color = sex)) +
+  geom_point(alpha = 0.05, position = "jitter", size = 0.1, pch = ".") +  geom_violin(size = 1, trim = TRUE) + facet_wrap(~chr,ncol=2) +
+  ylab("Length (bp)") +
+  xlab("Repeat type") + 
+  scale_y_log10(labels = scales::comma, breaks = c(10, 100, 1000, 10000, 100000)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black")) + ggtitle("C)")
+reps_plot
+
+```
+
+
+Synteny.
+
+```{r synteny}
+library(pafr)
+
+ali <- read_paf("scaffolded_y2x.paf")
+ali
+dotplot(ali, order_by="qstart", dashes = FALSE, ylab = "X chromosome", xlab = "Y chromosome") + coord_flip() + theme_bw() + theme(text=element_text(size=19))
+
+
+ggsave("figures/XY_synteny.test.png", width = 6, height = 4.5, dpi = 300)
+
+synt <- dotplot(ali, order_by="qstart", dashes = FALSE, ylab = "X chromosome", xlab = "Y chromosome") + coord_flip() + theme_bw() + theme(text=element_text(size=12)) + labs(title = "A)")
+
+
+```
+Make a big plot...
+
+
+```{R merge te plot}
+grid.arrange(synt, plottedTEs2, reps_plot, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 2),
+                        c(3,3)))
+
+TE_plot <- arrangeGrob(synt, plottedTEs2, reps_plot, nrow = 2, ncol = 2, #heights = c(1,2),
+             layout_matrix = rbind(c(1, 2),
+                        c(3,3)))
+ggsave("figures/Fig1_XY_TEs.png", TE_plot, width = 9, height = 10, dpi = 600)
+
+
+```

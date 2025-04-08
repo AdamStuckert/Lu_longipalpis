@@ -1,0 +1,108 @@
+---
+title: "ROH"
+output: html_document
+date: "2025-03-26"
+---
+
+```{r setup, include=FALSE}
+library(ggtree)
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+library(RSQLite)
+
+```
+
+
+
+MSMC2 figures:
+
+```{R MSMC2}
+
+#generation time of 7 weeks
+gen <- (7 * 7) / 365
+mu <- 1.25e-8
+time_pattern <- '1-6+8-1+1-4'
+
+db_file <- 'data/msmc2_results.db'
+
+
+myCon <- dbConnect(dbDriver("SQLite"), db_file)
+dbSendQuery(myCon, "attach 'data/lutzomyia_metadata.db' as m")
+
+
+
+msmc2 <- dbGetQuery(myCon, paste("select m.sample, chrom, time_index, left_time, right_time, lambda, country, pop_manuscript, sex, pop_col, country_col
+                                  from msmc2_results m, lutzomyia_samples s, lutzomyia_pops p
+                                  where m.sample = s.sample
+                                  and s.pop = p.pop
+                                  and pattern = '", time_pattern, "'
+                                  and chrom = 'genome'
+                                  and left_time > 0
+                                  order by m.sample, chrom, time_index", sep=''))
+                                  
+
+country_cols <- unique(cbind(msmc2$country, msmc2$country_col))
+pop_cols <- unique(cbind(msmc2$pop_manuscript, msmc2$pop_col))
+
+                      
+samples <- unique(msmc2$sample)
+br_samples <- unique(msmc2$sample[msmc2$country == 'Brazil'])
+
+pdf('figures/lutzomyia_msmc2_supplemental4manuscript.pdf', height=8, width=10.5)
+#plot countries
+plot(msmc2$left_time / mu * gen, (1 / msmc2$lambda) / (2 * mu), type='n', log='x', xlab="Years ago", ylab=expression("Effective population size (N"['e']*")"), main='')
+legend('topright', country_cols[,1], fill=country_cols[,2], border=NA)
+
+for (sample in samples)
+  {
+  df_filter <- msmc2$sample == sample
+  lines(msmc2$left_time[df_filter] / mu * gen, (1 / msmc2$lambda[df_filter]) / (2 * mu), type="s", col=msmc2$country_col[df_filter])  
+  }
+
+
+#plot all pops
+plot(msmc2$left_time / mu * gen, (1 / msmc2$lambda) / (2 * mu), type='n', log='x', xlab="Years ago", ylab=expression("Effective population size (N"['e']*")"), main='')
+legend('topright', pop_cols[,1], fill=pop_cols[,2], border=NA)
+for (sample in samples)
+  {
+  df_filter <- msmc2$sample == sample
+  lines(msmc2$left_time[df_filter] / mu * gen, (1 / msmc2$lambda[df_filter]) / (2 * mu), type="s", col=msmc2$pop_col[df_filter])  
+  }
+
+
+  #plot only Brazil pops
+plot(msmc2$left_time / mu * gen, (1 / msmc2$lambda) / (2 * mu), type='n', log='x', xlab="Years ago", ylab=expression("Effective population size (N"['e']*")"), main='')
+legend('topright', pop_cols[1:5, 1], fill=pop_cols[1:5, 2], border=NA)
+for (sample in br_samples)
+  {
+  df_filter <- msmc2$sample == sample
+  lines(msmc2$left_time[df_filter] / mu * gen, (1 / msmc2$lambda[df_filter]) / (2 * mu), type="s", col=msmc2$pop_col[df_filter])  
+  }
+dev.off()
+
+```
+
+```{r make effective population size plot}
+
+# define color scheme
+pops <- c("Colombia", "Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S" )
+pop_cols <- c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000")
+
+pops_split <- c("Colombia", "Jacobina S1", "Jacobina S2", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S" )
+pop_split_cols <- c("#0000AA", 'grey', 'tan4', "#00DCDC", "#00AB00", "#FF8000", "#AA0000")
+
+
+## plot countries for the main manuscript
+ne_plot <- ggplot(data=msmc2, aes(x=(left_time / mu * gen), y = (1 / msmc2$lambda) / (2 * mu), color = pop_manuscript, group = sample)) + geom_step(size = 0.5) + labs(x = "Years ago", y = expression("Effective population size (N"[e] ~ ")"), title = "E)") + scale_color_manual(values = c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000")) + scale_x_log10() +  theme_bw() + theme(text=element_text(size=21), legend.title = element_blank()) + 
+  guides(color = guide_legend(override.aes = list(linewidth = 2))) #makes lines bigger
+ne_plot
+######## NEED TO MAKE EVERY SINGLE SAMPLE A LINE
+ggsave("figures/Fig6_Ne.png", ne_plot, width = 10, height = 8.5, dpi = 600)
+
+```
+
+
+
+
+

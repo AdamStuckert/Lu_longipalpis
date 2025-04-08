@@ -1,0 +1,984 @@
+---
+title: "Fig2_SexDifferences"
+output: html_document
+date: "2025-03-12"
+---
+-
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(data.table)
+library(tidyverse)
+library(gridExtra)
+library(ggrepel)
+library(car)
+library(xts)
+```
+
+
+```{r manhattan function}
+
+#### USAGE:
+
+# takes a dataframe and makes a manhattan plot.
+#  EX: manhattan(fst, "chromosome", chromosome, "avg_wc_fst", window_pos_2, "black", "gold")
+
+# requires: specify dataframe, the column for chromosomes (in quotes), the column for chromosoms (NO QUOTES), column of fst values (in quotes), maximum base pair position of a window (window == row) NOT IN QUOTES, color1 (in quotes), color2 (in quotes)
+
+# dependencies: ggplot2, tidyverse/dplyr
+
+# additional note, some of this is derived from:  https://danielroelfs.com/blog/how-i-create-manhattan-plots-using-ggplot/
+manhattan_fst <- function(df, chrom_col, chrom_col2, data_col, window_pos, color1, color2, title) {
+  # first, drop all NA values
+ #  df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+  
+  # identify the 95% and 99% percentile
+  quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+  ylim <- c(0,(max(df[[data_col]]) + 0.2))
+  
+  ## create position data
+  cumulative_data <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarise(max_bp = max({{window_pos}})) %>% 
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+    select({{chrom_col2}}, bp_add)
+  
+  
+  df <- merge(df, cumulative_data, by = chrom_col)
+    
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+  
+  # chromosome centroid for graph
+  axis_set <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarize(center = mean(tot_bp))
+  
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = as_factor(get(chrom_col)))) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    #scale_y_continuous(expand = c(0,0), limits = ylim) +
+    scale_color_manual(values = rep(c(color1, color2), unique(length(axis_set[[chrom_col]])))) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome", 
+         y = expression(F[ST])) + 
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=20)) +
+    geom_hline(yintercept=my_threshold, linetype="dashed", color = "red", size = 1.25) + labs(title = title)
+  
+  manhplot
+}
+
+
+## and a version with a modifiable Y label:
+manhattan <- function(df, chrom_col, chrom_col2, data_col, window_pos, ylabel, color1, color2, title) {
+  # first, drop all NA values
+ # df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+  
+  # identify the 95% and 99% percentile
+  quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+  ylim <- c(0,(max(df[[data_col]]) + 0.2))
+  
+  ## create position data
+  cumulative_data <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarise(max_bp = max({{window_pos}})) %>% 
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+    select({{chrom_col2}}, bp_add)
+  
+  
+  df <- merge(df, cumulative_data, by = chrom_col)
+    
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+  
+  # chromosome centroid for graph
+  axis_set <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarize(center = mean(tot_bp))
+  
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = as_factor(get(chrom_col)))) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    #scale_y_continuous(expand = c(0,0), limits = ylim) +
+    scale_color_manual(values = rep(c(color1, color2), unique(length(axis_set[[chrom_col]])))) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome", 
+         y = ylabel) + 
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=20)) +
+    geom_hline(yintercept=my_threshold, linetype="dashed", color = "red", size = 1.25)+ labs(title = title)
+  
+  manhplot
+}
+
+## and a version with ylims....:
+manhattan_cov <- function(df, chrom_col, chrom_col2, data_col, window_pos, ylabel, color1, color2, title, ylim) {
+  # first, drop all NA values
+ # df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  #df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+  
+  # identify the 95% and 99% percentile
+  #quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  #my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+ # ylim <- c(0,(max(df[[data_col]]) + 0.2))
+  
+  ## create position data
+  cumulative_data <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarise(max_bp = max({{window_pos}})) %>% 
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+    select({{chrom_col2}}, bp_add)
+  
+  
+  df <- merge(df, cumulative_data, by = chrom_col)
+    
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+  
+  # chromosome centroid for graph
+  axis_set <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarize(center = mean(tot_bp))
+  
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = as_factor(get(chrom_col)))) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    scale_y_continuous(expand = c(0,0), limits = c(-2.5,5)) +
+    scale_color_manual(values = rep(c(color1, color2), unique(length(axis_set[[chrom_col]])))) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome", 
+         y = ylabel) + 
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=20)) +
+    geom_hline(yintercept=0, linetype="dashed", color = "red", size = 1.25)+ labs(title = title)
+  
+  manhplot
+}
+
+manhattan_cov2 <- function(df, chrom_col, chrom_col2, data_col, window_pos, ylabel, color_group, color_list, title, ylim) {
+  # first, drop all NA values
+ # df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  #df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+  
+  # identify the 95% and 99% percentile
+  #quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  #my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+ # ylim <- c(0,(max(df[[data_col]]) + 0.2))
+  
+  ## create position data
+  cumulative_data <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarise(max_bp = max({{window_pos}})) %>% 
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+    select({{chrom_col2}}, bp_add)
+  
+  
+  df <- merge(df, cumulative_data, by = chrom_col)
+    
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+  
+  # chromosome centroid for graph
+  axis_set <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarize(center = mean(tot_bp))
+  
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = color_group)) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    scale_y_continuous(expand = c(0,0), limits = c(-2.5,5)) +
+    scale_color_manual(values = color_list) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome", 
+         y = ylabel) + 
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=20)) +
+    geom_hline(yintercept=0, linetype="dashed", color = "red", size = 1.25)+ labs(title = title)
+  
+  manhplot
+}
+
+
+## ALLOW NEG VALUES FOR TAJIMAS D
+manhattanD <- function(df, chrom_col, chrom_col2, data_col, window_pos, ylabel, color1, color2) {
+  # first, drop all NA values
+ # df <- df %>% filter(df != "nan")
+#  df <- df %>% filter(df != "NaN")
+  # next make all negative values a 0
+  #df[[data_col]] <- ifelse(df[[data_col]] < 0, 0, df[[data_col]])
+  # next drop all rows with NA (these have no SNPs in them)
+  df <- df %>% drop_na()
+  
+  # identify the 95% and 99% percentile
+  #quantile(df[[data_col]], c(0.975, 0.995), na.rm = T)
+  # identify the 99% percentile
+  #my_threshold <- quantile(df[[data_col]], 0.995, na.rm = T)
+
+  # get ylim for graph
+  ylim <- c((min(df[[data_col]]) - 0.2),(max(df[[data_col]]) + 0.2))
+  
+  ## create position data
+  cumulative_data <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarise(max_bp = max({{window_pos}})) %>% 
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+    select({{chrom_col2}}, bp_add)
+  
+  
+  df <- merge(df, cumulative_data, by = chrom_col)
+    
+  df <- df %>%  mutate(tot_bp = {{window_pos}} + bp_add)
+  
+  # chromosome centroid for graph
+  axis_set <- df %>% 
+    group_by({{chrom_col2}}) %>% 
+    summarize(center = mean(tot_bp))
+  
+
+  manhplot <- ggplot(df, aes(x = tot_bp, y = get(data_col), color = as_factor(get(chrom_col)))) +
+    geom_point(alpha = 0.75, size = 2.5) +
+    scale_x_continuous(label = axis_set[[chrom_col]], breaks = axis_set$center) +
+    #scale_y_continuous(expand = c(0,0), limits = ylim) +
+    scale_color_manual(values = rep(c(color1, color2), unique(length(axis_set[[chrom_col]])))) +
+    #scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome", 
+         y = ylabel) + 
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=20)) +
+   # geom_hline(yintercept=my_threshold, linetype="dashed", color = "red", size = 1.25) +
+    geom_hline(yintercept=0,  color = "red", size = 1.25)
+  
+  manhplot
+}
+```
+
+
+### Pi analyses
+
+## Male assembly
+
+Pi is within a population, females or males in this case.
+```{r pi}
+pi <- read.table("data/pixy.filtered.male.assembly_pi.txt", header = TRUE, sep = "\t")
+pi <- pi %>% filter(chromosome == c("chr_1", "chr_2", "chr_3", "chr_4"))
+dim(pi)
+pi <- pi %>% filter(avg_pi != "NaN")
+dim(pi)
+pi$chromosome <- gsub(pattern = "chr_", replacement = "", pi$chromosome)
+mpi <- pi %>% filter(pop == "Male")
+
+fpi <- pi %>% filter(pop == "Female")
+
+fpi_manhat <- manhattan(fpi, "chromosome", chromosome, "avg_pi", window_pos_2, expression(pi[females]), "gray", "lightblue", "A)")
+mpi_manhat <- manhattan(mpi, "chromosome", chromosome, "avg_pi", window_pos_2, expression(pi[males]), "gray", "lightblue", "B)")
+
+fpi_manhat 
+mpi_manhat
+```
+
+
+Run a model:
+```{R pi model}
+pi2 <- pi
+pi2$chromosome <- gsub("autosome","2", pi2$chromosome)
+pi2$chromosome <- gsub("autosome","3", pi2$chromosome)
+pi2$chromosome <- gsub("autosome","4", pi2$chromosome)
+pi_mod <- lm(log(avg_pi + 0.000001) ~ chromosome, data = pi2)
+summary(pi_mod)
+
+pi_mod2 <- lm(log(avg_pi + 0.000001) ~ 1, data = pi2)
+summary(pi_mod2)
+
+Anova(pi_mod, pi_mod2)
+
+
+
+library("modelsummary")
+pi_mod_vals <- get_estimates(pi_mod, conf_level = 0.95, vcov = NULL)
+
+ggplot(pi_mod_vals, aes(x = term, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  theme_classic() +
+  xlab("Chromosome") +
+  ylab(expression(Dxy))
+
+
+
+
+res_aov <- aov(avg_pi ~ chromosome,
+  data = pi2
+)
+
+summary(res_aov)
+library("report")
+report(res_aov)
+```
+Calculate avg pi by sex by chromosome:
+
+```{r pi more}
+pi_stats <- pi %>% group_by(pop, chromosome) %>% summarise(avg_pi=mean(avg_pi))
+
+# autosome vs sex chrom
+pi_stats$chromosome <- gsub("2","autosome", pi_stats$chromosome)
+pi_stats$chromosome <- gsub("3","autosome", pi_stats$chromosome)
+pi_stats$chromosome <- gsub("4","autosome", pi_stats$chromosome)
+
+res_aov <- aov(avg_pi ~ chromosome,
+  data = pi_stats
+)
+
+summary(res_aov)
+library("report")
+report(res_aov)
+
+pi_mod <- lm(log(avg_pi) ~ pop + chromosome + pop*chromosome, data = pi_stats)
+summary(pi_mod)
+
+pi_mod2 <- lm(log(avg_pi) ~  pop + chromosome , data = pi_stats)
+summary(pi_mod2)
+
+Anova(pi_mod, pi_mod2)
+```
+
+
+
+
+```{r female pi}
+
+std_mean <- function(x) sd(x)/sqrt(length(x))
+
+# female stats
+cat("Pi statistics for MALE ASSEMBLY\n")
+cat("Pi statistics for females\n")
+cat(paste0("Average pi for females: ", mean(fpi$avg_pi),"\n"))
+cat(paste0("SD pi for females: ", sd(fpi$avg_pi),"\n"))
+cat(paste0("SE pi for females: ", std_mean(fpi$avg_pi),"\n\n\n\n"))
+
+# female chr 1 stats
+fpi_1 <- fpi %>% filter(chromosome == 1)
+cat("Pi statistics for females on chromosome 1\n")
+cat(paste0("Average pi for females on chr 1: ", mean(fpi_1$avg_pi),"\n"))
+cat(paste0("SD pi for females on chr 1: ", sd(fpi_1$avg_pi),"\n"))
+cat(paste0("SE pi for females on chr 1: ", std_mean(fpi_1$avg_pi),"\n\n\n\n"))
+
+
+# female stats
+cat("Pi statistics for males\n")
+
+cat(paste0("Average pi for males: ", mean(mpi$avg_pi),"\n"))
+cat(paste0("SD pi for males: ", sd(mpi$avg_pi),"\n"))
+cat(paste0("SE pi for males: ", std_mean(mpi$avg_pi),"\n\n\n\n"))
+
+# male chr 1 stats
+mpi_1 <- mpi %>% filter(chromosome == 1)
+cat("Pi statistics for males on chromosome 1\n")
+cat(paste0("Average pi for males on chr 1: ", mean(mpi_1$avg_pi),"\n"))
+cat(paste0("SD pi for males on chr 1: ", sd(mpi_1$avg_pi),"\n"))
+cat(paste0("SE pi for males on chr 1: ", std_mean(mpi_1$avg_pi),"\n"))
+
+
+```
+
+## Fst
+
+```{r fst}
+fst <- read.table("data/pixy.filtered.male.assembly_fst.txt", header = TRUE, sep = "\t")
+fst <- fst %>% filter(chromosome == c("chr_1", "chr_2", "chr_3", "chr_4"))
+# edit chromosome names for manhattan plot
+fst$chromosome <- gsub(pattern = "chr_", replacement = "", fst$chromosome)
+
+fst.manhat <- manhattan(fst, "chromosome", chromosome, "avg_wc_fst", window_pos_2, expression(F[ST]), "gray", "lightblue", "C)")
+fst.manhat
+ggsave("figures/ManhattanFst.png", width = 12, height = 9, dpi = 600)
+
+```
+
+## Dxy
+
+ 
+
+
+## GWAS
+
+
+
+```{r GWAS data and figure}
+m1 <- read.table("data/lutzomyia_sex_male_gwas.sex.glm.logistic", header = TRUE)
+colnames(m1)[1] <- "chromosome"
+colnames(m1)[2] <- "pos"
+m1$log10_p <- -log10(m1$P)
+gwas <- manhattan(m1, "chromosome", chromosome, "log10_p", pos, bquote(-log[10](P)), "gray", "lightblue", "D)")
+gwas
+
+```
+
+
+
+
+GO terms?
+
+```{r GO terms}
+```
+
+Coverage.
+
+```{r Coverage chr1, eval = FALSE}
+library(data.table)
+library(future.apply)
+# Set up parallel processing
+plan(multisession, workers = parallel::detectCores() - 5)  # Use all but 5 cores (current computer has 20)
+cont_samps <- read.csv("data/continent_samples.csv")
+col_samps <- cont_samps %>% filter(!grepl("^SRR", Run))
+
+
+# wish me fucking luck my computer doesnt crash
+ave_depths <-fread(file = "data/seqdepth.unique.tsv", sep = "\t")
+colnames(ave_depths) <- c("sample","mean","sd")
+# filter out Brazil samples:
+ave_depths <- ave_depths %>% filter(!grepl("^SRR", sample))
+dividors <- setNames(ave_depths$mean, ave_depths$sample)
+
+# read in depths
+chr1 <- fread(file = "data/chr1_cov.tsv", sep = "\t", header = TRUE)
+# divide by sample average depth
+chr1_divided <- chr1 %>%
+  mutate(across(all_of(names(dividors)), ~ .x / dividors[cur_column()]))
+# remove the raw depth from the environment
+rm(chr1)
+chr1 <- chr1_divided
+rm(chr1_divided)
+# calculate rolling averages
+cols_to_roll <- setdiff(names(chr1), c("chr","pos"))  # Exclude first two columns
+chr1[, (cols_to_roll) := future_lapply(.SD, frollmean, n = 1000, align = "left"), .SDcols = cols_to_roll]
+
+# save to disk..
+fwrite(chr1, "data/chr1_rolling_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+### calculate average for males and females
+# prep data table
+#cond_map <- setNames(col_samps$Sex, col_samps$Run)
+fems <- col_samps %>% filter(Sex == "Female")
+#extract only females: and calculate mean:
+chr1_fem <- chr1 %>% select(fems$Run) 
+#extract only males: and calculate mean:
+males <- col_samps %>% filter(Sex == "Male")
+chr1_males <- chr1 %>% select(males$Run) 
+
+# keep just first two columns of chr1 file
+chr1_pos <- chr1 %>% select(c(chr, pos))
+rm(chr1)
+
+
+chr1_fem <- chr1_fem %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+
+chr1_fem <- chr1_fem$RowMean
+
+
+
+chr1_males <- chr1_males %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+
+chr1_males <- chr1_males$RowMean
+
+#recreate chr1 
+
+chr1 <- cbind(chr1_pos, chr1_fem, chr1_males)
+# save
+fwrite(chr1, "data/chr1_sex_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+rm(chr1_pos)
+```
+
+```{R cov chr2, eval = FALSE}
+# other 3 chromosomes
+chr2 <- fread(file = "data/chr2_cov.tsv", sep = "\t", header = TRUE)
+chr2_divided <- chr2 %>%
+  mutate(across(all_of(names(dividors)), ~ .x / dividors[cur_column()]))
+rm(chr2)
+# remove the raw depth from the environment
+rm(chr2)
+chr2 <- chr2_divided
+rm(chr2_divided)
+# calculate rolling averages
+cols_to_roll <- setdiff(names(chr2), c("chr","pos"))  # Exclude first two columns
+chr2[, (cols_to_roll) := future_lapply(.SD, frollmean, n = 2000, align = "left"), .SDcols = cols_to_roll]
+
+# save to disk..
+fwrite(chr2, "data/chr2_rolling_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+### calculate average for males and females
+# prep data table
+#cond_map <- setNames(col_samps$Sex, col_samps$Run)
+fems <- col_samps %>% filter(Sex == "Female")
+#extract only females: and calculate mean:
+chr2_fem <- chr2 %>% select(fems$Run) 
+#extract only males: and calculate mean:
+males <- col_samps %>% filter(Sex == "Male")
+chr2_males <- chr2 %>% select(males$Run) 
+
+# keep just first two columns of chr2 file
+chr2_pos <- chr2 %>% select(c(chr, pos))
+rm(chr2)
+
+
+chr2_fem <- chr2_fem %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+chr2_fem <- chr2_fem$RowMean
+
+chr2_males <- chr2_males %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+
+chr2_males <- chr2_males$RowMean
+
+#recreate chr2 
+chr2 <- cbind(chr2_pos, chr2_fem, chr2_males)
+# save
+fwrite(chr2, "data/chr2_sex_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+rm(chr2_pos)
+```
+
+
+```{R cov chr3, eval = FALSE}
+# other 3 chromosomes
+chr3 <- fread(file = "data/chr3_cov.tsv", sep = "\t", header = TRUE)
+chr3_divided <- chr3 %>%
+  mutate(across(all_of(names(dividors)), ~ .x / dividors[cur_column()]))
+rm(chr3)
+# remove the raw depth from the environment
+rm(chr3)
+chr3 <- chr3_divided
+rm(chr3_divided)
+# calculate rolling averages
+cols_to_roll <- setdiff(names(chr3), c("chr","pos"))  # Exclude first two columns
+chr3[, (cols_to_roll) := future_lapply(.SD, frollmean, n = 3000, align = "left"), .SDcols = cols_to_roll]
+
+# save to disk..
+fwrite(chr3, "data/chr3_rolling_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+### calculate average for males and females
+# prep data table
+#cond_map <- setNames(col_samps$Sex, col_samps$Run)
+fems <- col_samps %>% filter(Sex == "Female")
+#extract only females: and calculate mean:
+chr3_fem <- chr3 %>% select(fems$Run) 
+#extract only males: and calculate mean:
+males <- col_samps %>% filter(Sex == "Male")
+chr3_males <- chr3 %>% select(males$Run) 
+
+# keep just first two columns of chr3 file
+chr3_pos <- chr3 %>% select(c(chr, pos))
+rm(chr3)
+
+
+chr3_fem <- chr3_fem %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+chr3_fem <- chr3_fem$RowMean
+
+chr3_males <- chr3_males %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+
+chr3_males <- chr3_males$RowMean
+
+#recreate chr3 
+chr3 <- cbind(chr3_pos, chr3_fem, chr3_males)
+# save
+fwrite(chr3, "data/chr3_sex_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+rm(chr3_pos)
+```
+
+
+```{R cov chr4, eval = FALSE}
+# other 4 chromosomes
+chr4 <- fread(file = "data/chr4_cov.tsv", sep = "\t", header = TRUE)
+chr4_divided <- chr4 %>%
+  mutate(across(all_of(names(dividors)), ~ .x / dividors[cur_column()]))
+rm(chr4)
+# remove the raw depth from the environment
+rm(chr4)
+chr4 <- chr4_divided
+rm(chr4_divided)
+# calculate rolling averages
+cols_to_roll <- setdiff(names(chr4), c("chr","pos"))  # Exclude first two columns
+chr4[, (cols_to_roll) := future_lapply(.SD, frollmean, n = 4000, align = "left"), .SDcols = cols_to_roll]
+
+# save to disk..
+fwrite(chr4, "data/chr4_rolling_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+### calculate average for males and females
+# prep data table
+#cond_map <- setNames(col_samps$Sex, col_samps$Run)
+fems <- col_samps %>% filter(Sex == "Female")
+#extract only females: and calculate mean:
+chr4_fem <- chr4 %>% select(fems$Run) 
+#extract only males: and calculate mean:
+males <- col_samps %>% filter(Sex == "Male")
+chr4_males <- chr4 %>% select(males$Run) 
+
+# keep just first two columns of chr4 file
+chr4_pos <- chr4 %>% select(c(chr, pos))
+rm(chr4)
+
+
+chr4_fem <- chr4_fem %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+chr4_fem <- chr4_fem$RowMean
+
+chr4_males <- chr4_males %>%
+  mutate(RowMean = rowMeans(select(., everything()), na.rm = TRUE))
+
+chr4_males <- chr4_males$RowMean
+
+#recreate chr4 
+chr4 <- cbind(chr4_pos, chr4_fem, chr4_males)
+# save
+fwrite(chr4, "data/chr4_sex_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+rm(chr4_pos)
+```
+
+```{r merge coverage to single df, eval = FALSE}
+colnames(chr1)[3:4] <- c("females", "males")
+colnames(chr2)[3:4] <- c("females", "males")
+colnames(chr3)[3:4] <- c("females", "males")
+colnames(chr4)[3:4] <- c("females", "males")
+cov <- rbind(chr1, chr2, chr3, chr4)
+
+# calculate coverage ratio between females and males
+cov_ratio <- cov$males/cov$females
+cov <- cbind(cov$chr, cov$pos, cov_ratio)
+
+# save
+fwrite(cov, "data/chromosome_sex_means.tsv", row.names = FALSE, col.names = TRUE, sep = "\t")
+
+
+## cleanup!
+rm(chr1, chr2, chr3, chr4, chr1_fem, chr1_males,chr2_fem, chr2_males,chr3_fem, chr3_males,chr4_fem, chr4_males,cov)
+```
+
+## What does coverage look like between males and females?
+
+```{r coverage ratio between the sexes}
+cov_ratio <- fread("data/chromosome_sex_means.tsv")
+
+# calculate coverage ratio between females and males
+
+cov_ratio <- as.data.frame(cov_ratio)
+colnames(cov_ratio) <- c("chromosome", "pos", "cov_ratio")
+cov_ratio$chromosome <- gsub("chr_","", cov_ratio$chromosome)
+
+cov_ratio$cov_ratio <- as.numeric(cov_ratio$cov_ratio)
+cov_ratio$pos <- as.numeric(cov_ratio$pos)
+
+
+
+##### find overlaps in gwas regions
+### gwas. pulled in above
+gwas_dat <- m1
+# identify the 99% percentile
+gwas_threshold <- quantile(gwas_dat$log10_p, 0.95, na.rm = T)
+gwas_threshold
+
+# extract only 99th%ile and chr 2-4
+gwas_hits <- gwas_dat %>% filter(log10_p > gwas_threshold)
+gwas_hits_short <- gwas_hits[,1:2]  
+  
+### coverage pulled in above
+# extract only 99th%ile 
+#cov_autos <- cov_ratio %>% filter(chromosome > 1)
+# identify the 99% percentile
+cov_threshold <- quantile(abs(cov_ratio$cov_ratio), 0.95, na.rm = T)
+cov_threshold
+
+# extract only 99th%ile and chr 2-4
+cov_hits <- cov_ratio %>% filter(abs(cov_ratio) > cov_threshold)
+cov_hits_short <- cov_hits[,1:2]  
+  cov_hits_short$chromosome <- as.integer(cov_hits_short$chromosome)
+
+
+
+## find overlap
+overlapping_autos <- intersect(gwas_hits_short,cov_hits_short)
+overlapping_autos$chrom_pos <- paste0(overlapping_autos$chromosome, "_", overlapping_autos$pos)
+# add new column to add them to the df....
+overlapping_autos$is_overlap_gwas <- "yes"
+# remove chrom and pos columns
+overlapping_autos <- overlapping_autos[,-c(1:2)]
+
+
+cov_ratio$chrom_pos <- paste0(cov_ratio$chromosome, "_", cov_ratio$pos)
+cov_ratio <- dplyr::left_join(cov_ratio, overlapping_autos, by = "chrom_pos")
+
+# cleanup!
+rm(cov_hits,gwas_autos, gwas_hits, dt, dt_summary)
+# too many points, i need to calculate means in ~2k windows to drop the number of points a lot... 
+dt <- data.table(cov_ratio)
+dt[, Group := (seq_len(.N) - 1) %/% 2000 + 1] 
+#dt_summary <- dt[, .(Mean_Value = mean(cov_ratio, na.rm = TRUE)), by = Group]
+#dt_summary <- dt[, .(Mean_Value = mean(cov_ratio, na.rm = TRUE)), by = Group]
+
+
+dt_summary <- dt[, .(
+  Mean_Value = mean(cov_ratio, na.rm = TRUE),
+  Mean_Pos = mean(pos, na.rm = TRUE),
+  Overlap_GWAS = ifelse(any(is_overlap_gwas == "yes", na.rm = TRUE), "yes", "no")), 
+ by = .(Group, chromosome)]
+
+# calculate log of mean coverage ratio:
+dt_summary$log_cov <- log2(dt_summary$Mean_Value)
+
+
+
+########  Assign colors in the dataset for the manhattan plot
+dt_summary <- dt_summary %>%
+  mutate(Color_Group = ifelse(Overlap_GWAS == "yes", "red", as.character(chromosome)))
+
+# Define alternating colors
+unique_factors <- unique(dt_summary$chromosome)
+factor_colors <- rep(c("gray", "lightblue"), length.out = length(unique_factors))
+names(factor_colors) <- unique_factors
+
+# Add red to the color mapping
+final_colors <- c(factor_colors, red = "red")
+
+
+  ## create position data
+  cumulative_data <- dt_summary %>% 
+    group_by(chromosome) %>% 
+    summarise(max_bp = max(Mean_Pos)) %>% 
+    mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+    select(chromosome, bp_add)
+  
+  
+  dt_summary <- merge(dt_summary, cumulative_data, by = "chromosome")
+    
+  dt_summary <- dt_summary %>%  mutate(tot_bp = Mean_Pos + bp_add)
+  
+  # chromosome centroid for graph
+  axis_set <- dt_summary %>% 
+    group_by(chromosome) %>% 
+    summarize(center = mean(tot_bp))
+  
+
+  cov_manhat <- ggplot(dt_summary, aes(x = tot_bp, y = log_cov, color = Color_Group)) +
+    geom_point(alpha = 0.5, size = 2.5) +
+    scale_x_continuous(label = axis_set$chromosome, breaks = axis_set$center) +
+    #scale_y_continuous(expand = c(0,0), limits = c(-2.5,5)) +
+    scale_color_manual(values = final_colors) +
+    scale_size_continuous(range = c(0.5,3)) +
+    labs(x = "Chromosome", 
+         y = "log coverage ratio") + 
+    theme_minimal() +
+    theme(legend.position = "none", text=element_text(size=20)) +
+    geom_hline(yintercept=0, linetype="dashed", color = "red", size = 1.25)+ labs(title = "E)")
+
+#cov_manhat <- manhattan_cov2(dt_summary, "chromosome", chromosome, "log_cov", Mean_Pos, "log coverage ratio", "Color_Group", final_colors, "E)", 5)
+
+cov_manhat
+```
+
+
+## PCAs
+
+```{r chr 1}
+# read in data from pcangsd
+C <- as.matrix(read.table("data/male.assembly.chr1.cov"))
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat <- e$vectors[,1:2]
+colnames(pcadat) <- c("PC1","PC2")
+
+# merge pc1/pc2 with metadata, but use corrected metadata:
+# samples
+lutzo <- read.table("SamplesSex.tsv", header = TRUE, sep = "\t")
+
+pcadat <- cbind(pcadat, lutzo)
+
+pca_chr1 <-   ggplot(pcadat, aes(x = PC1, y = PC2, color = Sex)) +
+    #stat_ellipse(aes(group = species), type = "t", level = 0.95, size = 1.25, show.legend = FALSE) + 
+    geom_point(size = 6, show.legend = TRUE, alpha = 0.5) +  # , shape = "\u269C"
+    scale_color_manual(values = c("hotpink1", "dodgerblue")) + scale_fill_manual(values = c("hotpink1", "dodgerblue")) +
+  xlab(paste0("PC1 (", pc1var, "%)")) +
+    ylab(paste0("PC2 (", pc2var, "%)")) +
+    # coord_fixed() + 
+    theme_bw() + theme(text=element_text(size=20))+
+  ggtitle("F)")
+
+pca_chr1
+# save
+#ggsave("figures/PCA_longipalpis_fixedsexes_presentation_chr1.male.png", width = 12, height = 9, dpi = 600)
+```
+
+```{r pca autosomes}
+# read in data from pcangsd
+C <- as.matrix(read.table("data/male.assembly.autosomes.cov"))
+
+
+# calculate variance for PC1 and PC2
+e <- eigen(C)
+eigvals <- e$values
+totvar <- sum(eigvals)
+pc1var <- round((eigvals[1]/totvar)*100, 1)
+pc2var <- round((eigvals[2]/totvar)*100, 1)
+
+# pull out pc1 and pc2
+pcadat <- e$vectors[,1:2]
+colnames(pcadat) <- c("PC1","PC2")
+
+# merge pc1/pc2 with metadata, but use corrected metadata:
+# samples
+lutzo <- read.table("SamplesSex.tsv", header = TRUE, sep = "\t")
+
+pcadat <- cbind(pcadat, lutzo)
+
+pca_autos <-   ggplot(pcadat, aes(x = PC1, y = PC2, color = Sex)) +
+    #stat_ellipse(aes(group = species), type = "t", level = 0.95, size = 1.25, show.legend = FALSE) + 
+    geom_point(size = 6, show.legend = TRUE, alpha = 0.5) +  # , shape = "\u269C"
+    scale_color_manual(values = c("hotpink1", "dodgerblue")) + scale_fill_manual(values = c("hotpink1", "dodgerblue")) +
+  xlab(paste0("PC1 (", pc1var, "%)")) +
+    ylab(paste0("PC2 (", pc2var, "%)")) +
+    # coord_fixed() + 
+    theme_bw() + theme(text=element_text(size=20)) +
+  ggtitle("G)")
+
+pca_autos
+# save
+#ggsave("figures/PCA_longipalpis_fixedsexes_presentation_autosomes.male.png", width = 12, height = 9, dpi = 600)
+```
+
+
+
+
+## GO analysis:
+
+```{r go plot}
+go_dat <- read.csv("data/GO_biological_processes_enrichment.csv")
+go_dat$Pathway <- sub(".*? ", "", go_dat$Pathway)
+
+go_plot <- ggplot(data = go_dat, aes(x = reorder(Pathway, Fold.Enrichment), y = Fold.Enrichment, size = nGenes, color = Fold.Enrichment)) + 
+  geom_point() + coord_flip() + labs(x = "Pathway", y = "Fold enrichment", title = "H)")  +  theme_bw() + 
+  guides(color = guide_legend(title = "Fold enrichment", order = 1,override.aes = list(size = 5)), size = guide_legend(title = "Number of genes", order = 2)) + theme(text=element_text(size=20),axis.text.x=element_text(angle=45),axis.text.y=element_text(size = 11))
+go_plot
+
+  ## To do: 
+# change color scheme?
+```
+
+
+
+
+
+Merge:
+
+```{r merge figures}
+layout <- rbind(c(1,1,6,6,6),
+          c(2,2,7,7,7),
+          c(3,3,8,8,8),
+          c(4,4,8,8,8),
+          c(5,5,8,8,8))
+        
+#test2 <- grid.arrange( site_tree, sa_map2, Cont.pca, str_plot, layout_matrix = layout)
+#ggsave("figures/Fig4_PopGen.png", test2, width = 17.5, height = 10, dpi = 600)
+
+
+figgie <- grid.arrange(fpi_manhat, mpi_manhat, fst.manhat, gwas, cov_manhat, pca_chr1, pca_autos, go_plot, layout_matrix = layout)
+ggsave("figures/Fig2_Genomic_differentiation.png", figgie, width = 14, height = 14, dpi = 600)
+```
+
+
+
+## what genes are in the overlap in autosomal coverage + gwas??
+
+```{r gwas and coverage genes}
+
+
+
+```
+
+
+
+```{R too scared to delete}
+
+##### find overlaps in gwas regions
+### gwas. pulled in above
+gwas_dat <- m1
+# extract only 99th%ile and chr 2-4
+gwas_autos <- gwas_dat %>% filter(chromosome > 1)
+# identify the 99% percentile
+gwas_autos_threshold <- quantile(gwas_autos$log10_p, 0.99, na.rm = T)
+gwas_autos_threshold
+
+# extract only 99th%ile and chr 2-4
+gwas_autos_hits <- gwas_autos %>% filter(log10_p > gwas_autos_threshold)
+gwas_autos_hits_short <- gwas_autos_hits[,1:2]  
+  
+### coverage pulled in above
+
+
+
+# extract only 99th%ile and chr 2-4
+cov_autos <- cov_ratio %>% filter(chromosome > 1)
+# identify the 99% percentile
+cov_autos_threshold <- quantile(cov_autos$cov_ratio, 0.99, na.rm = T)
+cov_autos_threshold
+
+# extract only 99th%ile and chr 2-4
+cov_autos_hits <- cov_autos %>% filter(cov_ratio > cov_autos_threshold)
+cov_autos_hits_short <- cov_autos_hits[,1:2]  
+  cov_autos_hits_short$chromosome <- as.integer(cov_autos_hits_short$chromosome)
+
+
+
+## find overlap
+overlapping_autos <- intersect(gwas_autos_hits_short,cov_autos_hits_short)
+overlapping_autos$chrom_pos <- paste0(overlapping_autos$chromosome, "_", overlapping_autos$pos)
+# add new column to add them to the df....
+overlapping_autos$is_overlap_gwas <- "yes"
+# remove chrom and pos columns
+overlapping_autos <- overlapping_autos[,-c(1:2)]
+
+
+cov_ratio$chrom_pos <- paste0(cov_ratio$chromosome, "_", cov_ratio$pos)
+cov_ratio <- dplyr::left_join(cov_ratio, overlapping_autos, by = "chrom_pos")
+
+```
+

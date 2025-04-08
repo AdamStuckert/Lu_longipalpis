@@ -1,0 +1,166 @@
+---
+title: "ROH"
+output: html_document
+date: "2025-03-26"
+---
+
+```{r setup, include=FALSE}
+library(ggtree)
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+library(RSQLite)
+
+```
+
+
+Runs of homozygozity. 
+
+
+```{R ROH}
+# library
+library(RSQLite)
+
+#create db connection
+db_file <-  'data/lutzo_roh.db'
+conn <- dbConnect(dbDriver("SQLite"), db_file)
+
+
+dbSendQuery(conn, "attach 'data/lutzomyia_metadata.db' as m")
+
+
+pop_cols <- dbGetQuery(conn, "select distinct pop_manuscript, pop_col
+                              from lutzo_roh r, lutzomyia_pops p
+                              where min_kb = 50
+                              and r.pop = p.pop
+                              order by pop_manuscript")
+
+
+
+lutzo_roh <- dbGetQuery(conn, "select r.*, pop_manuscript, pop_col
+                               from lutzo_roh r, lutzomyia_pops p
+                               where min_kb = 50
+                               and r.pop = p.pop")
+
+lutzo_roh_regions <- dbGetQuery(conn, "select r.*, (end + start) / 2 mid, pop_manuscript, pop_col
+                                       from lutzo_roh_regions r, lutzomyia_pops p
+                                       where min_kb = 50
+                                       and r.pop = p.pop")
+                                             
+
+png('figures/FigS8_lutzo_roh_histo.png', height=800, width=1200)
+par(mfrow=c(2,3))
+for (pop in pop_cols$pop_manuscript)
+  {
+  pop_filter <- lutzo_roh$pop_manuscript == pop
+  hist(lutzo_roh$sum_roh_kb[pop_filter], breaks=seq(0, max(lutzo_roh$sum_roh_kb) + 500, 500), col=lutzo_roh$pop_col[pop_filter], border=NA, xlab='Total ROH Kb', ylab='Individuals', main=pop)
+  }
+dev.off()
+
+
+pdf('lutzo_roh_manuscript.pdf', height=8, width=12)
+par(mfrow=c(2,3))
+for (pop in pop_cols$pop_manuscript)
+  {
+  pop_filter <- lutzo_roh$pop_manuscript == pop
+  hist(lutzo_roh$sum_roh_kb[pop_filter], breaks=seq(0, max(lutzo_roh$sum_roh_kb) + 500, 500), col=lutzo_roh$pop_col[pop_filter], border=NA, xlab='Total ROH Kb', ylab='Individuals', main=pop)
+  }
+par(mfrow=c(1,1))
+
+
+plot(1, type='n', xlim=c(0, max(lutzo_roh$num_roh_regions)), ylim=c(0, max(lutzo_roh$sum_roh_kb)), xlab='ROH regions', ylab='Total ROH Kb', main=c('Lutzomyia ROH', 'min Kb = 50'))
+legend('topleft', pop_cols$pop_manuscript, fill = pop_cols$pop_col, border=NA)
+for (pop in pop_cols$pop_manuscript)
+  {
+  pop_filter <- lutzo_roh$pop_manuscript == pop
+  points(lutzo_roh$num_roh_regions[pop_filter], lutzo_roh$sum_roh_kb[pop_filter], pch=20, col=lutzo_roh$pop_col[pop_filter])
+  } 
+
+par(mfrow=c(2,3))
+for (chrom in sort(unique(lutzo_roh_regions$chrom)))
+  {
+  for (pop in pop_cols$pop_manuscript)
+    {
+    pop_chrom_filter <- lutzo_roh_regions$pop_manuscript == pop & lutzo_roh_regions$chrom == chrom
+    hist(lutzo_roh_regions$mid[pop_chrom_filter], breaks=seq(0, max(lutzo_roh_regions$start[lutzo_roh_regions$chrom == chrom]) + 1e6, 1e6), col=lutzo_roh_regions$pop_col[pop_chrom_filter], border=NA, xlab=paste('Chromosome', chrom), ylab='Num ROH regions', main=pop)
+    }
+  }
+##par(mfrow=c(1,1))   
+dev.off()  
+```
+
+## Main ROH figure
+
+```{R ROH main ms figures}
+# ggplot for multipanel in paper
+# rename Sobral
+lutzo_roh$pop <- gsub("Sobral_1S", "Sobral 1S", lutzo_roh$pop)
+lutzo_roh$pop <- gsub("Sobral_2S", "Sobral 2S", lutzo_roh$pop)
+# reorder sites
+lutzo_roh$pop <- factor(lutzo_roh$pop, levels = c("Colombia", "Jacobina", "Laphina", "Marajo", "Sobral 1S", "Sobral 2S"))
+
+
+
+ROH_plot <- ggplot(lutzo_roh, aes(x = num_roh_regions, y = sum_roh_kb, color = pop)) + geom_point() + labs(x = "ROH regions", y = "Total ROH (Kbp)", title = "A)")  +  theme_bw() + theme(text=element_text(size=16), legend.title = element_blank()) + scale_color_manual(values = c("#0000AA", "#0080FF", "#00DCDC", "#00AB00", "#FF8000", "#AA0000")) +
+  guides(color = guide_legend(override.aes = list(size = 5))) 
+  
+  
+ROH_plot
+
+```
+Show genomic regions:
+
+```{R genomic regions}
+# extract only
+col <- lutzo_roh_regions %>% filter(pop == "Colombia")
+
+col_ROH <- ggplot(col, aes(x = mid, group = chrom)) +
+  geom_histogram(binwidth = 500000) +
+  facet_grid(~ chrom) + 
+  labs(x = "Position", y = "Number of ROH regions", title = "B)") +
+  theme_bw() + theme(text=element_text(size=16), axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+col_ROH
+
+
+mar <- lutzo_roh_regions %>% filter(pop == "Marajo")
+
+mar_ROH <- ggplot(mar, aes(x = mid, group = chrom)) +
+  geom_histogram(binwidth = 500000) +
+  facet_grid(~ chrom) + 
+  labs(x = "Position", y = "Number of ROH regions", title = "C)") +
+  theme_bw() + theme(text=element_text(size=16), axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+mar_ROH
+
+
+```
+
+
+```{R full merged image for Figure 4}
+
+
+ROH_multi <- grid.arrange(ROH_plot, col_ROH, mar_ROH, ncol = 1)
+ROH_multi
+ggsave("figures/Fig5_ROH.png", ROH_multi, width = 12, height = 8, dpi = 600)
+
+
+```
+
+```{r ROH by region for all pops/regions}
+
+ggplot(lutzo_roh_regions, aes(x = mid, group = chrom)) +
+  geom_histogram(binwidth = 500000) +
+  facet_grid(pop ~ chrom) + 
+  labs(x = "Position", y = "Number of ROH regions") +
+  theme_bw() + theme(text=element_text(size=16), axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+# note could add , scales = "free_x" to make the chrom facets the right length, but meh
+ggsave("figures/FigS10_ROH.png",  width = 8, height = 12, dpi = 600)
+
+```
+
+
+
+
+
