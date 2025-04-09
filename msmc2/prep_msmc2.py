@@ -3,8 +3,6 @@ import os
 import subprocess
 from datetime import datetime
 
-#python3 /work/users/d/t/dturissi/lutzomyia/msmc2/run_msmc2.py JB_LF11-lutzomyia_female_78_021921_TAGGCATG-TCGACTAG_S2
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
