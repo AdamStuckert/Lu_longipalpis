@@ -1,0 +1,8 @@
+{
+  "gwas_name": "lutzomyia_sex_male",
+  "phenotype_name": "sex",
+  "genotype_dataset": "lutzomyia_male",
+  "phenotype_file": "/proj/matutelb/projects/gwas/scratch/lutzomyia_sex/lutzomyia_meta_sex_coded.txt",
+  "plink_parameters": "--geno 0.2 --maf 0.05",	
+  "covariate_file": ""
+}
