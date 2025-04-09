@@ -17,5 +17,8 @@ sbatch prep_msmc2.sbatch
 #run mscm2
 sbatch prep_msmc2.sbatch
 
+#process msmc2 results and load into database
+python3 load_msmc2_results.py
+
 #make mansucripot plot
 Rscript msmc2_plots_manuscript.R
