@@ -1,0 +1,143 @@
+#!/bin/bash
+#SBATCH --ntasks 1
+#SBATCH -t 4-0:00:00
+#SBATCH --job-name=angsdPCA
+#SBATCH --output=angsdPCA_%j.log
+#SBATCH --cpus-per-task=24
+#SBATCH --partition=general
+#SBATCH --mem=400Gb ## I used 400Gb to create the beagle file
+
+SCR="/pine/scr/a/s/astuck"
+out="/work/users/a/s/astuck/longipalpis_ms/map2male"
+angsddir="/work/users/a/s/astuck/longipalpis_ms/map2male/angsd"
+bamlist=$(pwd)
+bamlist+="/samplelist.txt"
+SAMPLES="$HOME/longipalpis_ms/All_longipalpis_samples.txt"
+
+module purge
+
+. ${PROJ}/software/anaconda3/etc/profile.d/conda.sh
+conda activate angsd 
+
+mkdir $out
+mkdir ${angsddir}
+mkdir ${angsddir}/pca
+
+## get only sample names:
+cut -f 1 $SAMPLES | grep -v "Run" > samplelist.txt
+
+# add "merged.bam"
+sed -zi "s/\n/.dedupd.bam\n/g" samplelist.txt
+
+# add path to samples
+sed -i "s&^&${out}/bams/&g" samplelist.txt
+
+echo Analyzing data from $bamlist
+
+printf "Using samples....\n"
+cat $bamlist
+
+# create a beagle file with genotype probabilities
+/nas/longleaf/home/astuck/software/angsd/angsd  -GL 2 -out ${angsddir}/continent_rerun -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam $bamlist -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+conda activate base
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle ${angsddir}/continent_rerun.beagle.gz -admix -out ${angsddir}/pca/continent_rerun \
+    -threads 24
+
+# sample list from bamlist
+awk -F\\/ '{print $(NF)}' $bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/continent_rerun_longipalpis_samples.txt
+
+
+
+# create a beagle file with genotype probabilities
+/nas/longleaf/home/astuck/software/angsd/angsd  -GL 2 -out ${angsddir}/Colombia -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam $bamlist -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+conda activate base
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+#    -beagle ${angsddir}/filtered_nosim.beagle.gz -admix -out ${angsddir}/pca/Colombia \
+#     -threads 24
+
+# sample list from bamlist
+awk -F\\/ '{print $(NF)}' $bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/longipalpis_samples.txt
+
+
+
+
+# # ########################
+# # ###### CHR 1 ###########
+# # ########################
+
+mkdir ${angsddir}/pca/chr1
+### #extract only chr 1
+# new bamlist
+> chr1.bamlist
+
+for bam in $(cat $bamlist)
+do
+echo Extracting ch1 from $bam
+samtools view $bam chr_1 -b > $bam.chr1.bam
+echo $bam.chr1.bam >> chr1.bamlist
+done
+
+
+
+
+ml samtools
+# # create a beagle file with genotype probabilities
+/nas/longleaf/home/astuck/software/angsd/angsd -GL 2 -out ${angsddir}/Colombia_chr1 -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam chr1.bamlist  -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle ${angsddir}/Colombia_chr1.beagle.gz -admix -out ${angsddir}/pca/Colombia_chr1 \
+    -threads 24
+
+# sample list from bamlist
+awk -F\\/ '{print $(NF)}' chr1.bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/longipalpis_chr1_samples.txt
+
+
+
+
+# # ########################
+# # ##### AUTOSOMES ########
+# # ########################
+
+mkdir ${angsddir}/pca/autosomes
+
+### #extract only autosomes
+# new bamlist
+> autosomes.bamlist
+
+for bam in $(cat $bamlist)
+do
+
+
+echo Extracting ch1 from $bam
+samtools view $bam chr_2 chr_3 chr_4 --threads 24 -b > $bam.autosomes.bam
+echo $bam.autosomes.bam >> autosomes.bamlist
+done
+
+
+
+
+# ml samtools
+# # create a beagle file with genotype probabilities
+/nas/longleaf/home/astuck/software/angsd/angsd -GL 2 -out ${angsddir}/Colombia_autosomes -nThreads 24 -minInd 5 -doGlf 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -bam autosomes.bamlist  -minMapQ 30 -minQ 20 -doCounts 1 -doDepth 1
+
+# create a pca
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle ${angsddir}/Colombia_autosomes.beagle.gz -admix -out ${angsddir}/pca/Colombia_autosomes \
+    -threads 24
+
+# sample list from bamlist
+# awk -F\\/ '{print $(NF)}' chr1.bamlist | sed "s/.merged.bam//g" > ${angsddir}/pca/longipalpis_chr1_samples.txt
+
+
+
+
+conda activate base
+python /proj/matutelb/users/stuckert/software/pcangsd/pcangsd.py \
+   -beagle continent_rerun.beagle.gz -admix -e 6 -out pca/continent_rerun_kminus1 \
+    -threads 24
