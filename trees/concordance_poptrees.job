@@ -1,0 +1,30 @@
+#!/bin/bash
+#SBATCH -p general
+#sbatch -J concordance
+#SBATCH --cpus-per-task=24
+#SBATCH -t 10-00:00:00 
+#SBATCH --mem=160g
+#SBATCH -o concordance_%j.out
+#SBATCH --mail-type=BEGIN
+
+ml iqtree
+
+
+# TEST ONE
+# cat  whole genome trees
+cd /work/users/a/s/astuck/longipalpis_ms/map2male/
+cp iqtree_continent/consensus_trees/whole.genome.consensus.SPP.treefile .
+
+
+
+# cat BUSCO trees
+cat iqtree_continent_BUSCOs/consensus_spp_trees/*treefile > BUSCO.genes.treefile
+
+# compute gene concordance factors
+iqtree2 -t whole.genome.consensus.SPP.treefile --gcf BUSCO.genes.treefile --prefix concord -redo -T 24
+
+# compute site concordance factor using likelihood with v2.2.2 
+### need to move all alignment files into a different directory.....
+mkdir BUSCO_alignments
+cp iqtree_continent_BUSCOs/*min4.phy BUSCO_alignments
+iqtree2 -te whole.genome.consensus.SPP.treefile -p BUSCO_alignments --scfl 100 --prefix concord2 -redo  -T 24
