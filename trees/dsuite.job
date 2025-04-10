@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH -p general
+#sbatch -J Dsuite
+#SBATCH --cpus-per-task=24
+#SBATCH -t 3-0
+#SBATCH --mem=30g
+#SBATCH -o Dsuite_%j.out
+#SBATCH --constraint="[rhel7|rhel8]"
+
+
+
+ml gcc
+
+TREE=/work/users/a/s/astuck/longipalpis_ms/map2male/whole.genome.consensus.SPP.dsuite.treefile
+VCF=/work/users/a/s/astuck/longipalpis_ms/map2male/lutzo_all_withSRA_2male.vcf.gz
+#TRIOS=
+SPP_MAP=${HOME}/longipalpis_ms/dsuite.sp.map.txt
+
+
+cd /work/users/a/s/astuck/longipalpis_ms/map2male
+mkdir dsuite
+cd dsuite
+
+# run with a tree 
+Dsuite Dtrios -o Dtrios_nwck -t $TREE $VCF $SPP_MAP
+Dsuite Fbranch $TREE Dtrios_nwck_tree.txt > fbranch.txt
+
+# plottie plot
+Ddir=$(which Dsuite | sed 's/\/Build\/Dsuite//')
+
+${Ddir}/utils/dtools.py --tree-label-size 8 --dpi 600 fbranch.txt $TREE
